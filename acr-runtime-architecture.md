@@ -9,7 +9,7 @@ Traditional AI governance models focus primarily on development-time controls su
 ---
 
 # Architectural Role of ACR
-![ACR Runtime Architecture](acr-reference-architecture.png)
+![ACR Framework](./acr-reference-architecture.png)
 
 ACR functions as a control plane that mediates interactions between autonomous AI systems and enterprise resources.
 
