@@ -1,5 +1,6 @@
-# ACR Framework
-## Autonomous Control & Resilience for AI Systems
+# ACR Framework - Autonomous Control & Resilience for Runtime AI Governance
+
+Runtime governance architecture for autonomous AI systems.
 
 The **ACR Framework (Autonomous Control & Resilience)** is a runtime governance architecture designed to control autonomous AI systems operating in enterprise environments.
 
