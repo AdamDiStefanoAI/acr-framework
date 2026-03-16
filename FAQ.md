@@ -14,7 +14,7 @@ ACR is a **framework** — an architectural specification and design pattern lib
 
 ### Who created ACR?
 
-ACR was created by Adam DiStefano, AI Security & Governance Leader at Synergeia Labs, based on years of experience implementing runtime governance for enterprise AI systems.
+ACR was created by Adam DiStefano, AI Security & Governance Leader, based on years of experience implementing runtime governance for enterprise AI systems.
 
 ### Is ACR open source?
 
