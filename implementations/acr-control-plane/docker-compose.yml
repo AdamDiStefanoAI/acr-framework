@@ -1,0 +1,164 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-acr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-acr_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-acr_control_plane}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-acr} -d ${POSTGRES_DB:-acr_control_plane}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # ── Redis ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 200mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+  # ── Open Policy Agent ──────────────────────────────────
+  opa:
+    image: openpolicyagent/opa:0.70.0
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./policies:/policies:ro
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-format=json"
+      - "/policies"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8181/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
+  # ── ACR Kill Switch (independent service) ─────────────
+  acr-killswitch:
+    build:
+      context: .
+      dockerfile: Dockerfile.killswitch
+    ports:
+      - "8443:8443"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      KILLSWITCH_SECRET: ${KILLSWITCH_SECRET:-killswitch_dev_secret_change_me}
+      OPERATOR_API_KEYS_JSON: ${OPERATOR_API_KEYS_JSON:-}
+      ACR_ENV: ${ACR_ENV:-development}
+      WEB_CONCURRENCY: ${KILLSWITCH_WORKERS:-2}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8443/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+  # ── ACR Gateway (main service) ─────────────────────────
+  acr-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-acr}:${POSTGRES_PASSWORD:-acr_dev_password}@postgres:5432/${POSTGRES_DB:-acr_control_plane}
+      REDIS_URL: redis://redis:6379/0
+      OPA_URL: http://opa:8181
+      KILLSWITCH_URL: http://acr-killswitch:8443
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_jwt_secret_change_in_production}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_TOKEN_EXPIRE_MINUTES: ${JWT_TOKEN_EXPIRE_MINUTES:-30}
+      ACR_ENV: ${ACR_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SCHEMA_BOOTSTRAP_MODE: ${SCHEMA_BOOTSTRAP_MODE:-auto}
+      STRICT_DEPENDENCY_STARTUP: ${STRICT_DEPENDENCY_STARTUP:-false}
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      WEBHOOK_HMAC_SECRET: ${WEBHOOK_HMAC_SECRET:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OPERATOR_API_KEYS_JSON: ${OPERATOR_API_KEYS_JSON:-}
+      SERVICE_OPERATOR_API_KEY: ${SERVICE_OPERATOR_API_KEY:-}
+      EXECUTE_ALLOWED_ACTIONS: ${EXECUTE_ALLOWED_ACTIONS:-false}
+      TOOL_EXECUTOR_MAP_JSON: ${TOOL_EXECUTOR_MAP_JSON:-}
+      EXECUTOR_HMAC_SECRET: ${EXECUTOR_HMAC_SECRET:-}
+      EXECUTOR_TIMEOUT_SECONDS: ${EXECUTOR_TIMEOUT_SECONDS:-8.0}
+      WEB_CONCURRENCY: ${GATEWAY_WORKERS:-2}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+      acr-killswitch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/acr/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+volumes:
+  postgres_data:
+  redis_data:

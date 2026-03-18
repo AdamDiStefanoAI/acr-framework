@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acr-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: acr-gateway
+  template:
+    metadata:
+      labels:
+        app: acr-gateway
+    spec:
+      containers:
+        - name: gateway
+          image: ghcr.io/synergeialabs/acr-framework-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: acr-gateway-config
+            - secretRef:
+                name: acr-gateway-secret
+          readinessProbe:
+            httpGet:
+              path: /acr/ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /acr/live
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

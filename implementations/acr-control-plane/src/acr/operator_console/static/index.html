@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ACR Operator Console</title>
+    <link rel="stylesheet" href="/console-assets/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <p class="eyebrow">Autonomous Control &amp; Resilience</p>
+          <h1>Operator Console</h1>
+          <p class="lede">A control room for agent registration, approvals, observability, and containment.</p>
+        </div>
+
+        <section class="panel accent">
+          <h2>Operator Session</h2>
+          <div class="button-row">
+            <button id="oidc-login" class="button primary" type="button">Sign In With SSO</button>
+            <button id="oidc-logout" class="button ghost" type="button">Sign Out</button>
+          </div>
+          <label for="operator-api-key">X-Operator-API-Key</label>
+          <input id="operator-api-key" type="password" placeholder="Paste operator key" />
+          <label for="killswitch-secret">Kill Switch Secret</label>
+          <input id="killswitch-secret" type="password" placeholder="Optional for direct service ops" />
+          <div class="button-row">
+            <button id="save-session" class="button primary">Save Session</button>
+            <button id="clear-session" class="button ghost">Clear</button>
+          </div>
+          <p class="hint">Use SSO when configured. API keys are still supported for bootstrap and break-glass access.</p>
+          <div id="session-state" class="status-pill neutral">Session not configured</div>
+        </section>
+
+        <nav class="nav">
+          <button class="nav-link active" data-section="overview">Overview</button>
+          <button class="nav-link" data-section="operator-keys">Operator Keys</button>
+          <button class="nav-link" data-section="agents">Agents</button>
+          <button class="nav-link" data-section="policy-studio">Policy Studio</button>
+          <button class="nav-link" data-section="approvals">Approvals</button>
+          <button class="nav-link" data-section="events">Events</button>
+          <button class="nav-link" data-section="drift">Drift</button>
+          <button class="nav-link" data-section="containment">Containment</button>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Production Operations</p>
+            <h2>Govern agent activity without leaving the control plane.</h2>
+          </div>
+          <button id="refresh-all" class="button primary">Refresh Dashboard</button>
+        </header>
+
+        <section id="global-message" class="flash hidden"></section>
+
+        <section id="overview" class="page active">
+          <div class="metrics">
+            <article class="metric-card sunrise">
+              <span>Gateway</span>
+              <strong id="health-gateway">Unknown</strong>
+              <small>/acr/health</small>
+            </article>
+            <article class="metric-card mint">
+              <span>Readiness</span>
+              <strong id="health-ready">Unknown</strong>
+              <small>/acr/ready</small>
+            </article>
+            <article class="metric-card ink">
+              <span>Pending Approvals</span>
+              <strong id="metric-approvals">0</strong>
+              <small>Needs human review</small>
+            </article>
+            <article class="metric-card ember">
+              <span>Killed Agents</span>
+              <strong id="metric-killed">0</strong>
+              <small>Containment active</small>
+            </article>
+          </div>
+
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Pending Approvals</h3>
+                <button class="button ghost small" data-action="load-approvals">Refresh</button>
+              </div>
+              <div id="overview-approvals" class="list-shell"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Kill Switch Status</h3>
+                <button class="button ghost small" data-action="load-containment">Refresh</button>
+              </div>
+              <div id="overview-containment" class="list-shell"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="agents" class="page">
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Register Agent</h3>
+                <span class="hint">Create or update operating boundaries</span>
+              </div>
+              <form id="agent-form" class="form-stack">
+                <input name="agent_id" placeholder="agent_id" required />
+                <input name="owner" placeholder="owner email or team" required />
+                <input name="purpose" placeholder="purpose" required />
+                <input name="allowed_tools" placeholder="allowed tools (comma separated)" />
+                <input name="forbidden_tools" placeholder="forbidden tools (comma separated)" />
+                <div class="inline-grid">
+                  <input name="max_actions_per_minute" type="number" placeholder="max actions/min" value="30" />
+                  <input name="max_cost_per_hour_usd" type="number" step="0.01" placeholder="max cost/hour" value="5" />
+                </div>
+                <button class="button primary" type="submit">Register Agent</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Issue Token</h3>
+                <span class="hint">Generate a short-lived agent JWT</span>
+              </div>
+              <form id="token-form" class="form-stack">
+                <input name="agent_id" placeholder="agent_id" required />
+                <button class="button primary" type="submit">Issue Token</button>
+              </form>
+              <pre id="token-output" class="code-shell">No token issued yet.</pre>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h3>Registered Agents</h3>
+              <button class="button ghost small" data-action="load-agents">Refresh</button>
+            </div>
+            <div id="agents-table" class="table-shell"></div>
+          </section>
+        </section>
+
+        <section id="operator-keys" class="page">
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Create Operator Key</h3>
+                <span class="hint">One-time plaintext display after creation</span>
+              </div>
+              <form id="operator-key-form" class="form-stack">
+                <input name="name" placeholder="display name" required />
+                <input name="subject" placeholder="subject / owner" required />
+                <input name="roles" placeholder="roles (comma separated)" required />
+                <button class="button primary" type="submit">Create Key</button>
+              </form>
+              <pre id="operator-key-output" class="code-shell">No operator key created yet.</pre>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Manage Existing Key</h3>
+                <span class="hint">Rotate or revoke by key ID</span>
+              </div>
+              <form id="operator-key-manage-form" class="form-stack">
+                <input name="key_id" placeholder="operator key ID" required />
+                <div class="button-row">
+                  <button class="button caution" type="button" data-operator-key-action="rotate">Rotate Key</button>
+                  <button class="button danger" type="button" data-operator-key-action="revoke">Revoke Key</button>
+                </div>
+              </form>
+              <pre id="operator-key-manage-output" class="code-shell">No operator key action run yet.</pre>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h3>Stored Operator Keys</h3>
+              <button class="button ghost small" data-action="load-operator-keys">Refresh</button>
+            </div>
+            <div id="operator-keys-table" class="table-shell"></div>
+          </section>
+        </section>
+
+        <section id="policy-studio" class="page">
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Guided Policy Setup</h3>
+                <span class="hint">Generate a starter manifest and Rego policy package</span>
+              </div>
+              <form id="policy-wizard-form" class="form-stack">
+                <input name="agent_id" placeholder="agent_id" required />
+                <input name="owner" placeholder="owner / team" required />
+                <input name="purpose" placeholder="agent purpose" required />
+                <select name="template">
+                  <option value="customer_support">Customer Support</option>
+                  <option value="finance_ops">Finance Ops</option>
+                  <option value="research_assistant">Research Assistant</option>
+                  <option value="it_automation">IT Automation</option>
+                </select>
+                <select name="risk_tier">
+                  <option value="low">Low risk</option>
+                  <option value="medium" selected>Medium risk</option>
+                  <option value="high">High risk</option>
+                </select>
+                <input name="allowed_tools" placeholder="allowed tools (comma separated)" />
+                <input name="forbidden_tools" placeholder="forbidden tools (comma separated)" />
+                <div class="inline-grid">
+                  <input name="max_actions_per_minute" type="number" value="30" placeholder="max actions/min" />
+                  <input name="max_cost_per_hour_usd" type="number" step="0.01" value="5" placeholder="max cost/hour" />
+                </div>
+                <div class="inline-grid">
+                  <input name="escalate_tool" placeholder="tool requiring approval" />
+                  <input name="escalate_over_amount" type="number" step="0.01" placeholder="escalate if amount >" />
+                </div>
+                <input name="approval_queue" placeholder="approval queue" value="default" />
+                <textarea name="pii_fields" placeholder="PII regex target fields, comma separated (example: body, notes)"></textarea>
+                <input name="draft_name" placeholder="draft name" value="Starter policy draft" />
+                <div class="button-row">
+                  <button class="button primary" type="submit">Generate Policy Starter</button>
+                  <button class="button ghost" type="button" id="save-policy-draft">Save Draft</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Operator Guidance</h3>
+                <span class="hint">A fast path for teams who are not policy experts</span>
+              </div>
+              <div class="stack-list">
+                <div class="stack-item">
+                  <strong>1. Pick a template</strong>
+                  <div>Start from customer support, finance, research, or IT automation.</div>
+                </div>
+                <div class="stack-item">
+                  <strong>2. Set boundaries</strong>
+                  <div>Choose rate and spend limits that match the blast radius you can tolerate.</div>
+                </div>
+                <div class="stack-item">
+                  <strong>3. Define escalations</strong>
+                  <div>Specify which action should require a human and when.</div>
+                </div>
+                <div class="stack-item">
+                  <strong>4. Review generated policy</strong>
+                  <div>Use the output as a starter package for `policies/acr/` and refine it with security or platform owners.</div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Suggested Agent Manifest</h3>
+                <button class="button ghost small" type="button" id="copy-manifest">Copy</button>
+              </div>
+              <pre id="policy-manifest-output" class="code-shell">Generate a policy starter to see the manifest.</pre>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Suggested Rego Policy</h3>
+                <button class="button ghost small" type="button" id="copy-rego">Copy</button>
+              </div>
+              <pre id="policy-rego-output" class="code-shell">Generate a policy starter to see the Rego package.</pre>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h3>Saved Policy Drafts</h3>
+              <button class="button ghost small" type="button" id="refresh-policy-drafts">Refresh</button>
+            </div>
+            <div id="policy-drafts-table" class="table-shell"></div>
+            <form id="load-policy-draft-form" class="form-stack">
+              <input name="draft_id" placeholder="draft_id to load" required />
+              <div class="button-row">
+                <button class="button ghost" type="submit">Load Draft Into Studio</button>
+                <button class="button primary" type="button" id="export-policy-bundle">Export Bundle</button>
+              </div>
+            </form>
+          </section>
+
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Draft Simulator</h3>
+                <span class="hint">Test a proposed action against the loaded draft</span>
+              </div>
+              <form id="policy-simulator-form" class="form-stack">
+                <input name="tool_name" placeholder="tool_name" required />
+                <textarea name="parameters_json" placeholder='parameters JSON, e.g. {"amount": 250, "body": "hello"}'></textarea>
+                <textarea name="context_json" placeholder='context JSON, e.g. {"actions_this_minute": 2, "hourly_spend_usd": 10}'></textarea>
+                <button class="button primary" type="submit">Run Simulation</button>
+              </form>
+              <pre id="policy-simulation-output" class="code-shell">Load a draft and run a simulation.</pre>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Publishable Bundle</h3>
+                <span class="hint">Ready-to-copy filenames and contents</span>
+              </div>
+              <pre id="policy-bundle-output" class="code-shell">Load a draft and export the bundle.</pre>
+            </section>
+          </div>
+
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Validation & Publish</h3>
+                <span class="hint">Validate before production release</span>
+              </div>
+              <form id="policy-publish-form" class="form-stack">
+                <textarea name="publish_notes" placeholder="publish or rollback notes"></textarea>
+                <div class="button-row">
+                  <button class="button ghost" type="button" id="validate-policy-draft">Validate Draft</button>
+                  <button class="button primary" type="button" id="publish-policy-draft">Publish Draft</button>
+                </div>
+              </form>
+              <pre id="policy-validation-output" class="code-shell">Load a draft and validate it before publishing.</pre>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Release History</h3>
+                <button class="button ghost small" type="button" id="refresh-policy-releases">Refresh</button>
+              </div>
+              <div id="policy-releases-table" class="table-shell"></div>
+              <form id="policy-release-actions-form" class="form-stack">
+                <input name="release_id" placeholder="release_id to activate or roll back" required />
+                <div class="button-row">
+                  <button class="button primary" type="button" id="activate-policy-release">Activate Release</button>
+                  <button class="button danger" type="submit">Rollback Release</button>
+                </div>
+              </form>
+              <pre id="policy-release-output" class="code-shell">Release activation state will appear here.</pre>
+              <form id="policy-rollback-form" class="form-stack hidden" aria-hidden="true">
+                <input name="release_id" placeholder="release_id to roll back" required />
+                <button class="button danger" type="submit">Rollback Release</button>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <section id="approvals" class="page">
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Approval Queue</h3>
+                <button class="button ghost small" data-action="load-approvals">Refresh</button>
+              </div>
+              <div id="approvals-table" class="table-shell"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Decision Workbench</h3>
+                <span class="hint">Approve, deny, or override by request ID</span>
+              </div>
+              <form id="approval-form" class="form-stack">
+                <input name="request_id" placeholder="approval request ID" required />
+                <input name="decided_by" placeholder="operator identity (optional)" />
+                <textarea name="reason" placeholder="reason"></textarea>
+                <div class="button-row">
+                  <button class="button primary" type="button" data-decision="approve">Approve</button>
+                  <button class="button caution" type="button" data-decision="deny">Deny</button>
+                  <button class="button danger" type="button" data-decision="override">Override</button>
+                </div>
+              </form>
+              <pre id="approval-output" class="code-shell">No decision submitted yet.</pre>
+            </section>
+          </div>
+        </section>
+
+        <section id="events" class="page">
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Recent Events</h3>
+                <button class="button ghost small" data-action="load-events">Refresh</button>
+              </div>
+              <form id="events-filter" class="inline-grid">
+                <input name="agent_id" placeholder="filter by agent_id" />
+                <input name="event_type" placeholder="filter by event_type" />
+                <button class="button ghost" type="submit">Apply</button>
+              </form>
+              <div id="events-table" class="table-shell"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Correlation Trace</h3>
+                <span class="hint">Replay all events linked to one request</span>
+              </div>
+              <form id="trace-form" class="form-stack">
+                <input name="correlation_id" placeholder="correlation ID" required />
+                <button class="button primary" type="submit">Load Trace</button>
+              </form>
+              <pre id="trace-output" class="code-shell">No trace loaded yet.</pre>
+            </section>
+          </div>
+        </section>
+
+        <section id="drift" class="page">
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Drift Inspection</h3>
+                <span class="hint">Inspect current score and baseline posture</span>
+              </div>
+              <form id="drift-form" class="form-stack">
+                <input name="agent_id" placeholder="agent_id" required />
+                <div class="button-row">
+                  <button class="button primary" type="button" data-drift-action="score">Load Score</button>
+                  <button class="button ghost" type="button" data-drift-action="baseline">Load Baseline</button>
+                  <button class="button caution" type="button" data-drift-action="reset">Reset Baseline</button>
+                </div>
+              </form>
+              <pre id="drift-output" class="code-shell">No drift data loaded yet.</pre>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Metrics Surface</h3>
+                <button class="button ghost small" data-action="load-metrics">Refresh</button>
+              </div>
+              <pre id="metrics-output" class="code-shell">Metrics not loaded.</pre>
+            </section>
+          </div>
+        </section>
+
+        <section id="containment" class="page">
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Containment Actions</h3>
+                <span class="hint">Activate or restore an agent through the kill switch</span>
+              </div>
+              <form id="containment-form" class="form-stack">
+                <input name="agent_id" placeholder="agent_id" required />
+                <input name="operator_id" placeholder="operator identity (optional)" />
+                <textarea name="reason" placeholder="reason for action"></textarea>
+                <div class="button-row">
+                  <button class="button danger" type="button" data-containment-action="kill">Kill Agent</button>
+                  <button class="button primary" type="button" data-containment-action="restore">Restore Agent</button>
+                  <button class="button ghost" type="button" data-containment-action="status">Check Status</button>
+                </div>
+              </form>
+              <pre id="containment-output" class="code-shell">No containment action run yet.</pre>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Contained Agents</h3>
+                <button class="button ghost small" data-action="load-containment">Refresh</button>
+              </div>
+              <div id="containment-table" class="table-shell"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/console-assets/app.js"></script>
+  </body>
+  </html>

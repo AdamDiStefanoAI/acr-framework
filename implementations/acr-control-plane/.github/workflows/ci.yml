@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Lint ────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dev dependencies
+        run: pip install -e ".[dev]" ruff
+
+      - name: Ruff — format check
+        run: ruff format --check src/ tests/
+
+      - name: Ruff — lint
+        run: ruff check src/ tests/
+
+  # ── Tests ───────────────────────────────────────────────────────────────────
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests with coverage
+        env:
+          # Use safe test defaults — no real secrets needed in CI
+          JWT_SECRET_KEY: "ci_test_secret_not_for_production_at_all"
+          KILLSWITCH_SECRET: "ci_killswitch_secret_not_for_production"
+          ACR_ENV: "test"
+        run: |
+          pytest tests/ -v \
+            --cov=src/acr \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=80
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 7
+
+  # ── Security ─────────────────────────────────────────────────────────────────
+  security:
+    name: Security scan (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: pip-audit — check for known CVEs
+        run: pip-audit --strict
+
+  # ── OPA policy tests ─────────────────────────────────────────────────────────
+  opa:
+    name: OPA policy tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OPA
+        run: |
+          curl -L -o /usr/local/bin/opa \
+            https://openpolicyagent.org/downloads/v0.70.0/opa_linux_amd64_static
+          chmod +x /usr/local/bin/opa
+
+      - name: Verify OPA policies parse cleanly
+        run: opa check policies/
+
+      - name: Run OPA policy tests
+        run: opa test policies/ -v
+
+  # ── Docker build ─────────────────────────────────────────────────────────────
+  docker:
+    name: Docker build (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: gateway
+            dockerfile: Dockerfile
+          - service: killswitch
+            dockerfile: Dockerfile.killswitch
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: acr-${{ matrix.service }}:ci

@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acr-killswitch
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: acr-killswitch
+  template:
+    metadata:
+      labels:
+        app: acr-killswitch
+    spec:
+      containers:
+        - name: killswitch
+          image: ghcr.io/synergeialabs/acr-framework-killswitch:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8443
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: acr-gateway-secret
+                  key: REDIS_URL
+            - name: KILLSWITCH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: acr-gateway-secret
+                  key: KILLSWITCH_SECRET
+            - name: OPERATOR_API_KEYS_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: acr-gateway-secret
+                  key: OPERATOR_API_KEYS_JSON
+            - name: ACR_ENV
+              value: "production"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8443
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8443
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

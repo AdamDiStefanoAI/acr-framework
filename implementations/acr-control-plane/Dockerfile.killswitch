@@ -1,0 +1,34 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && adduser --disabled-password --gecos "" acr
+
+COPY pyproject.toml ./
+COPY src/ ./src/
+COPY README.md ./
+
+RUN pip install --no-cache-dir .
+
+ENV PYTHONPATH=/app/src
+ENV PYTHONUNBUFFERED=1
+
+# Kill switch is a low-throughput control service; 2 workers is sufficient.
+# Override via WEB_CONCURRENCY if needed.
+ENV WEB_CONCURRENCY=2
+
+EXPOSE 8443
+
+USER acr
+
+# The kill switch runs as an independent FastAPI service
+CMD uvicorn acr.pillar5_containment.service:app \
+    --host 0.0.0.0 \
+    --port 8443 \
+    --workers ${WEB_CONCURRENCY} \
+    --loop uvloop \
+    --http httptools

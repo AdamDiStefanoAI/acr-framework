@@ -1,0 +1,435 @@
+"""
+ACR Control Plane — FastAPI application entrypoint.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+import httpx
+import structlog
+from fastapi import Depends, FastAPI, Request
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from sqlalchemy import text
+
+from acr.common.errors import ACRError
+from acr.common.operator_auth import OperatorPrincipal, require_operator_roles
+from acr.common.redis_client import close_redis, init_redis
+from acr.config import assert_production_secrets, effective_schema_bootstrap_mode, settings
+from acr.db.database import engine, get_db
+from acr.db.models import Base
+from acr.gateway.middleware import CorrelationMiddleware
+from acr.auth.router import router as auth_router  # noqa: E402
+from acr.operator_console.router import router as console_router  # noqa: E402
+from acr.operator_console.router import static_files as console_static_files  # noqa: E402
+from acr.pillar4_observability.otel import setup_otel
+from acr.pillar4_observability.evidence import build_evidence_bundle
+
+# ── Configure structlog ───────────────────────────────────────────────────────
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    logger_factory=structlog.PrintLoggerFactory(),
+)
+
+logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
+
+
+# ── App lifespan ──────────────────────────────────────────────────────────────
+
+async def _approval_expiry_loop() -> None:
+    """Periodically expire timed-out approval requests (runs every 60 s)."""
+    from acr.db.database import async_session_factory
+    from acr.pillar6_authority.approval import expire_timed_out_approvals
+
+    log = structlog.get_logger(__name__)
+    while True:
+        await asyncio.sleep(60)
+        async with async_session_factory() as db:
+            try:
+                expired = await expire_timed_out_approvals(db)
+                await db.commit()
+                if expired:
+                    log.info("approval_sla_expired", count=expired)
+            except Exception as exc:
+                await db.rollback()
+                log.warning("approval_expiry_error", error=str(exc))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Startup: reject weak secrets in staging/production environments
+    assert_production_secrets()
+
+    # Startup: initialise OpenTelemetry
+    setup_otel()
+
+    # Startup: initialise Redis connection pool
+    try:
+        await init_redis()
+    except Exception:
+        if settings.strict_dependency_startup or settings.acr_env not in ("development", "test"):
+            raise
+        structlog.get_logger(__name__).warning("redis_init_failed_continuing_without_redis")
+
+    # Startup: manage schema according to environment policy.
+    mode = effective_schema_bootstrap_mode()
+    async with engine.begin() as conn:
+        if mode == "create":
+            await conn.run_sync(Base.metadata.create_all)
+        elif mode == "validate":
+            required_tables = {
+                "agents",
+                "approval_requests",
+                "telemetry_events",
+                "drift_metrics",
+                "operator_credentials",
+                "policy_drafts",
+            }
+
+            def _missing_tables(sync_conn):
+                from sqlalchemy import inspect
+
+                inspector = inspect(sync_conn)
+                existing = set(inspector.get_table_names())
+                return sorted(required_tables - existing)
+
+            missing = await conn.run_sync(_missing_tables)
+            if missing:
+                raise RuntimeError(
+                    "Database schema is incomplete. Run Alembic migrations before startup. "
+                    f"Missing tables: {', '.join(missing)}"
+                )
+
+    # Startup: launch approval SLA expiry background loop
+    expiry_task = asyncio.create_task(_approval_expiry_loop())
+
+    yield
+
+    # Shutdown: cancel background tasks
+    expiry_task.cancel()
+    try:
+        await expiry_task
+    except asyncio.CancelledError:
+        pass
+
+    # Shutdown: close Redis and DB pool
+    await close_redis()
+    await engine.dispose()
+
+
+# ── Application ───────────────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="ACR Control Plane",
+    description="Autonomous Control & Resilience — governance gateway for AI agents",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
+
+# Middleware
+app.add_middleware(CorrelationMiddleware)
+
+
+# ── Exception handlers ────────────────────────────────────────────────────────
+
+@app.exception_handler(ACRError)
+async def acr_error_handler(request: Request, exc: ACRError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error_code": exc.error_code, "message": exc.message},
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    # Never expose internal details
+    return JSONResponse(
+        status_code=500,
+        content={"error_code": "INTERNAL_ERROR", "message": "An unexpected error occurred"},
+    )
+
+
+# ── Routers ───────────────────────────────────────────────────────────────────
+
+from acr.gateway.router import router as gateway_router  # noqa: E402
+from acr.pillar1_identity.router import router as identity_router  # noqa: E402
+from acr.operator_keys.router import router as operator_keys_router  # noqa: E402
+from acr.policy_studio.router import bundle_router, router as policy_studio_router  # noqa: E402
+from acr.pillar5_containment.router import router as containment_router  # noqa: E402
+from acr.pillar6_authority.router import router as authority_router  # noqa: E402
+
+app.include_router(gateway_router)
+app.include_router(auth_router)
+app.include_router(identity_router)
+app.include_router(operator_keys_router)
+app.include_router(policy_studio_router)
+app.include_router(bundle_router)
+app.include_router(containment_router)
+app.include_router(authority_router)
+app.include_router(console_router)
+app.mount("/console-assets", console_static_files, name="console-assets")
+
+
+if settings.acr_env == "development":
+
+    @app.get("/openapi.json", include_in_schema=False)
+    async def openapi_schema() -> JSONResponse:
+        return JSONResponse(app.openapi())
+
+
+    @app.get("/docs", include_in_schema=False)
+    async def swagger_ui() -> Response:
+        return get_swagger_ui_html(openapi_url="/openapi.json", title=f"{app.title} - Swagger UI")
+
+
+    @app.get("/redoc", include_in_schema=False)
+    async def redoc_ui() -> Response:
+        return get_redoc_html(openapi_url="/openapi.json", title=f"{app.title} - ReDoc")
+
+else:
+
+    @app.get("/openapi.json", include_in_schema=False)
+    async def openapi_schema(
+        principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin", "auditor")),
+    ) -> JSONResponse:
+        return JSONResponse(app.openapi())
+
+
+    @app.get("/docs", include_in_schema=False)
+    async def swagger_ui(
+        principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin", "auditor")),
+    ) -> Response:
+        return get_swagger_ui_html(openapi_url="/openapi.json", title=f"{app.title} - Swagger UI")
+
+
+    @app.get("/redoc", include_in_schema=False)
+    async def redoc_ui(
+        principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin", "auditor")),
+    ) -> Response:
+        return get_redoc_html(openapi_url="/openapi.json", title=f"{app.title} - ReDoc")
+
+
+# ── Observability endpoints ───────────────────────────────────────────────────
+
+from sqlalchemy import select  # noqa: E402
+from acr.db.database import async_session_factory  # noqa: E402
+from acr.db.models import TelemetryEventRecord  # noqa: E402
+
+
+@app.get("/acr/health", tags=["Observability"])
+async def health() -> dict:
+    return {"status": "healthy", "version": settings.acr_version, "env": settings.acr_env}
+
+
+@app.get("/acr/live", tags=["Observability"])
+async def live() -> dict:
+    return {"status": "alive", "version": settings.acr_version}
+
+
+@app.get("/acr/ready", tags=["Observability"])
+async def ready() -> JSONResponse:
+    checks: dict[str, str] = {}
+    status_code = 200
+
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception:
+        structlog.get_logger(__name__).warning("readiness_check_failed", dependency="database")
+        checks["database"] = "error"
+        status_code = 503
+
+    try:
+        from acr.common.redis_client import get_redis
+
+        await get_redis().ping()
+        checks["redis"] = "ok"
+    except Exception:
+        structlog.get_logger(__name__).warning("readiness_check_failed", dependency="redis")
+        checks["redis"] = "error"
+        status_code = 503
+
+    try:
+        async with httpx.AsyncClient(base_url=settings.opa_url, timeout=3.0) as client:
+            resp = await client.get("/health")
+            resp.raise_for_status()
+        checks["opa"] = "ok"
+    except Exception:
+        structlog.get_logger(__name__).warning("readiness_check_failed", dependency="opa")
+        checks["opa"] = "error"
+        status_code = 503
+
+    return JSONResponse(
+        status_code=status_code,
+        content={"status": "ready" if status_code == 200 else "not_ready", "checks": checks},
+    )
+
+
+@app.get("/acr/events", tags=["Observability"])
+async def list_events(
+    agent_id: str | None = None,
+    event_type: str | None = None,
+    limit: int = 50,
+    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+) -> list[dict]:
+    async with async_session_factory() as db:
+        q = select(TelemetryEventRecord).order_by(TelemetryEventRecord.created_at.desc()).limit(limit)
+        if agent_id:
+            q = q.where(TelemetryEventRecord.agent_id == agent_id)
+        if event_type:
+            q = q.where(TelemetryEventRecord.event_type == event_type)
+        result = await db.execute(q)
+        records = result.scalars().all()
+    return [r.payload for r in records]
+
+
+@app.get("/acr/events/{correlation_id}", tags=["Observability"])
+async def get_event_chain(
+    correlation_id: str,
+    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+) -> list[dict]:
+    async with async_session_factory() as db:
+        result = await db.execute(
+            select(TelemetryEventRecord)
+            .where(TelemetryEventRecord.correlation_id == correlation_id)
+            .order_by(TelemetryEventRecord.created_at.asc())
+        )
+        records = result.scalars().all()
+    return [r.payload for r in records]
+
+
+@app.get("/acr/evidence/{correlation_id}", tags=["Observability"])
+async def export_evidence_bundle(
+    correlation_id: str,
+    db: AsyncSession = Depends(get_db),
+    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+) -> Response:
+    result = await db.execute(
+        select(TelemetryEventRecord)
+        .where(TelemetryEventRecord.correlation_id == correlation_id)
+        .order_by(TelemetryEventRecord.created_at.asc())
+    )
+    records = result.scalars().all()
+    artifact = build_evidence_bundle(
+        correlation_id=correlation_id,
+        events=[record.payload for record in records],
+    )
+    return Response(
+        content=artifact.bytes_data,
+        media_type=artifact.content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{artifact.filename}"',
+            "X-Evidence-Bundle-Sha256": artifact.sha256,
+        },
+    )
+
+
+# ── Drift endpoints ───────────────────────────────────────────────────────────
+
+from acr.pillar3_drift.baseline import get_baseline_profile, reset_baseline  # noqa: E402
+from acr.pillar3_drift.detector import compute_drift_score  # noqa: E402
+
+
+@app.get("/acr/drift/{agent_id}", tags=["Drift"])
+async def get_drift_score(
+    agent_id: str,
+    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+) -> dict:
+    async with async_session_factory() as db:
+        drift = await compute_drift_score(db, agent_id)
+    return drift.model_dump()
+
+
+@app.get("/acr/drift/{agent_id}/baseline", tags=["Drift"])
+async def get_baseline(
+    agent_id: str,
+    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+) -> dict:
+    async with async_session_factory() as db:
+        profile = await get_baseline_profile(db, agent_id)
+    return profile.model_dump()
+
+
+@app.post("/acr/drift/{agent_id}/baseline/reset", tags=["Drift"])
+async def reset_agent_baseline(
+    agent_id: str,
+    principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin")),
+) -> dict:
+    async with async_session_factory() as db:
+        await reset_baseline(db, agent_id)
+        await db.commit()
+    return {"status": "baseline_reset", "agent_id": agent_id}
+
+
+# ── Metrics endpoint (Prometheus text format) ─────────────────────────────────
+
+from sqlalchemy import func as sa_func  # noqa: E402
+from acr.db.models import AgentRecord, ApprovalRequestRecord  # noqa: E402
+
+
+@app.get("/acr/metrics", tags=["Observability"], response_class=PlainTextResponse)
+async def prometheus_metrics(
+    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "security_admin")),
+) -> str:
+    """
+    Expose key ACR metrics in Prometheus text format.
+    Scrape with prometheus/pushgateway or any Prometheus-compatible collector.
+    """
+    async with async_session_factory() as db:
+        # Total events by decision
+        rows = await db.execute(
+            select(
+                TelemetryEventRecord.event_type,
+                sa_func.count().label("n"),
+            ).group_by(TelemetryEventRecord.event_type)
+        )
+        event_counts = {row.event_type: row.n for row in rows}
+
+        # Approval requests by status
+        approval_rows = await db.execute(
+            select(
+                ApprovalRequestRecord.status,
+                sa_func.count().label("n"),
+            ).group_by(ApprovalRequestRecord.status)
+        )
+        approval_counts = {row.status: row.n for row in approval_rows}
+
+        # Active agents
+        agent_count_row = await db.execute(
+            select(sa_func.count()).where(AgentRecord.is_active == True)  # noqa: E712
+        )
+        active_agents = agent_count_row.scalar_one()
+
+    lines: list[str] = [
+        "# HELP acr_events_total Total telemetry events recorded",
+        "# TYPE acr_events_total counter",
+    ]
+    for event_type, count in event_counts.items():
+        lines.append(f'acr_events_total{{event_type="{event_type}"}} {count}')
+
+    lines += [
+        "# HELP acr_approval_requests_total Approval requests by status",
+        "# TYPE acr_approval_requests_total gauge",
+    ]
+    for status, count in approval_counts.items():
+        lines.append(f'acr_approval_requests_total{{status="{status}"}} {count}')
+
+    lines += [
+        "# HELP acr_active_agents Number of active registered agents",
+        "# TYPE acr_active_agents gauge",
+        f"acr_active_agents {active_agents}",
+        "",  # trailing newline
+    ]
+    return "\n".join(lines)

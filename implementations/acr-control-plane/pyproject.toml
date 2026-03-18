@@ -1,0 +1,114 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "acr-control-plane"
+version = "1.0.0"
+description = "ACR Reference Control Plane — governance gateway for autonomous AI systems"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "ACR Framework" }]
+
+dependencies = [
+    # Web framework
+    "fastapi>=0.115.0,<1.0.0",
+    "uvicorn[standard]>=0.32.0,<1.0.0",
+
+    # Pydantic
+    "pydantic>=2.9.0,<3.0.0",
+    "pydantic-settings>=2.6.0,<3.0.0",
+
+    # Database — async SQLAlchemy + asyncpg
+    "sqlalchemy[asyncio]>=2.0.36,<3.0.0",
+    "asyncpg>=0.30.0,<1.0.0",
+    "alembic>=1.14.0,<2.0.0",
+
+    # Redis
+    "redis[hiredis]>=5.2.0,<6.0.0",
+
+    # HTTP client (OPA, webhooks, proxy)
+    "httpx>=0.28.0,<1.0.0",
+    "boto3>=1.35.0,<2.0.0",
+
+    # Auth — JWT
+    "python-jose[cryptography]>=3.4.0,<4.0.0",
+    "passlib[bcrypt]>=1.7.4,<2.0.0",
+
+    # OpenTelemetry — core (stable releases)
+    "opentelemetry-api>=1.29.0,<2.0.0",
+    "opentelemetry-sdk>=1.29.0,<2.0.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.29.0,<2.0.0",
+
+    # OpenTelemetry — instrumentation packages track the core version family.
+    # Pinned to <0.60b0 to prevent unreviewed major jumps.
+    "opentelemetry-instrumentation-fastapi==0.59b0",
+    "opentelemetry-instrumentation-httpx==0.59b0",
+    "opentelemetry-instrumentation-sqlalchemy==0.59b0",
+
+    # Structured logging
+    "structlog>=24.4.0,<26.0.0",
+
+    # Utilities
+    "python-multipart>=0.0.18,<1.0.0",
+    "anyio>=4.7.0,<5.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0,<9.0.0",
+    "pytest-asyncio>=0.24.0,<1.0.0",
+    "pytest-cov>=6.0.0,<7.0.0",
+    "httpx>=0.28.0,<1.0.0",      # async test client
+    "fakeredis>=2.26.0,<3.0.0",
+    "pytest-mock>=3.14.0,<4.0.0",
+    "aiosqlite>=0.20.0,<1.0.0",  # SQLite async driver for in-memory tests
+    # Security scanning — run `pip-audit` in CI to catch known CVEs
+    "pip-audit>=2.7.0,<3.0.0",
+    # Linting / formatting
+    "ruff>=0.4.0,<1.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/acr"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.coverage.run]
+source = ["src/acr"]
+omit = ["src/acr/db/migrations/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in default arguments (FastAPI Depends pattern)
+    "SIM108", # ternary operator (readability preference)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["acr"]

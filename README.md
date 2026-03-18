@@ -351,6 +351,7 @@ See [ROADMAP.md](./ROADMAP.md) for detailed development plan. For project struct
 Organizations and vendors implementing ACR-aligned solutions are listed below. To **add your implementation**, see [ADOPTION.md](./ADOPTION.md) (criteria, maturity levels, and how to submit a listing).
 
 **Open Source:**
+- [ACR Control Plane](./implementations/acr-control-plane) — reference control-plane implementation for runtime governance ([upstream](https://github.com/SynergeiaLabs/proofstream-mvp)).
 - *[Add community implementations as they emerge]*
 
 **Commercial:**
