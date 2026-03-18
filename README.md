@@ -9,6 +9,7 @@ Learn more at https://autonomouscontrol.io/control-plane.
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0-green.svg)](https://github.com/SynergeiaLabs/acr-framework/releases)
 [![Framework](https://img.shields.io/badge/type-reference%20architecture-orange.svg)]()
+[![Link Check](https://github.com/SynergeiaLabs/acr-framework/actions/workflows/link-check.yml/badge.svg)](https://github.com/SynergeiaLabs/acr-framework/actions/workflows/link-check.yml)
 
 📖 [Read the Docs](./docs) | 🎯 [Use Cases](./docs/guides/acr-use-cases.md) | 🔒 [Threat Model](./docs/security/acr-strike-threat-model.md) | 🗺️ [NIST Mapping](./docs/compliance/acr-nist-ai-rmf-mapping.md) | 📋 [Adopt ACR](./ADOPTION.md)
 
@@ -25,6 +26,24 @@ curl http://localhost:8000/acr/health
 ```
 
 Open the operator console at `http://localhost:8000/console` (Operator API key: `dev-operator-key`; Kill switch secret: `killswitch_dev_secret_change_me`).
+
+---
+## What You’ll Find Here
+
+- `docs/`: the ACR framework specifications (the “why” and “what must be enforced”)
+- `implementations/acr-control-plane/`: a runnable ACR Control Plane reference implementation (FastAPI + OPA + Postgres + Redis)
+- `implementations/`: a landing page to jump straight into the control plane demo
+
+## Keywords (for search & discovery)
+
+- agentic AI governance
+- runtime control plane
+- policy as code
+- Open Policy Agent (OPA) / Rego
+- human-in-the-loop approvals
+- drift detection
+- kill-switch containment
+- execution observability / audit evidence
 
 ---
 
