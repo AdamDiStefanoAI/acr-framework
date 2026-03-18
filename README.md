@@ -16,8 +16,7 @@ Learn more at https://autonomouscontrol.io/control-plane.
 Run a runnable reference control plane that demonstrates ACR six-pillar runtime enforcement.
 
 ```bash
-git clone https://github.com/SynergeiaLabs/acr-framework.git
-cd acr-framework/implementations/acr-control-plane
+cd implementations/acr-control-plane
 cp .env.example .env
 docker-compose up --build
 

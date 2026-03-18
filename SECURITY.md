@@ -10,11 +10,11 @@ We release patches for the current major/minor version. Security-related updates
 
 ## Reporting a Vulnerability
 
-The ACR Framework is a **documentation and specification** repository. It does not ship executable code. If you believe you have found a security issue, it may fall into one of these categories:
+The ACR Framework is primarily a **documentation and specification** repository, but it also includes a runnable reference implementation under `implementations/acr-control-plane/` (for local demos). If you believe you have found a security issue, it may fall into one of these categories:
 
 1. **Vulnerability in the framework specification** — e.g. a control or design that could encourage insecure implementations.
 2. **Vulnerability in documentation or examples** — e.g. sample configuration or code that could lead to misuse.
-3. **Vulnerability in tooling or infrastructure** — if we add CI, automation, or a documentation site that has a security flaw.
+3. **Vulnerability in reference implementation / tooling** — e.g. the runnable control-plane code and related scripts (or any CI/automation we add that touches it).
 
 **How to report:**
 

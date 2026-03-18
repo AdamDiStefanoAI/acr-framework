@@ -39,7 +39,7 @@ This project adheres to a code of conduct. By participating, you are expected to
 
 ### Code Contributions
 
-ACR is an **architectural framework**. The core repository focuses on specifications, design patterns, and architectural guidance. Reference implementations are welcome but are typically maintained in separate repositories. If you have a reference implementation that implements ACR patterns, consider linking it from the [Implementations](README.md#implementations) section via a pull request.
+ACR is an **architectural framework**. The core repository focuses on specifications, design patterns, and architectural guidance. Reference implementations are welcome and may live in this repo under `implementations/` or be linked from the [Implementations](README.md#implementations) section via a pull request.
 
 ### Documentation Structure
 
