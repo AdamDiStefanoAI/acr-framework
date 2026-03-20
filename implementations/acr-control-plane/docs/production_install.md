@@ -15,7 +15,7 @@ This is the shortest end-to-end path for taking the repo from GitHub to a real p
 
 ```bash
 git clone https://github.com/SynergeiaLabs/acr-framework.git
-cd acr-framework/control_plane
+cd acr-framework/implementations/acr-control-plane
 pip install -e ".[dev]"
 ```
 
