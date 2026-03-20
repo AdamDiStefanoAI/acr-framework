@@ -4,6 +4,7 @@ This example shows how to make the ACR gateway a real enforcement point for down
 
 The executor exposes a single `/execute` endpoint and refuses to run unless the request includes a valid:
 - `X-ACR-Execution-Token`
+- `X-ACR-Brokered-Credential`
 - request body matching the token's signed payload hash
 
 That means a caller cannot simply replay the executor URL directly with a modified body and bypass the control plane.
@@ -20,6 +21,12 @@ Health check:
 
 ```bash
 curl http://127.0.0.1:8010/health
+```
+
+Metadata:
+
+```bash
+curl http://127.0.0.1:8010/metadata
 ```
 
 ## Connect It To The Gateway
@@ -42,9 +49,41 @@ Now the gateway can call the executor, but direct callers without a valid execut
 ## What This Proves
 
 - the control plane can mint short-lived execution authorization
+- the control plane can mint short-lived brokered downstream credentials
 - the executor can verify that authorization independently
+- the executor can enforce audience/scope-aware credentials instead of trusting the caller directly
 - the exact request body is bound to the authorization token
 - bypass attempts that alter the payload can be rejected before tool execution
+
+## Why This Matters For Orchestrators
+
+This pattern is what turns ACR into infrastructure instead of advice.
+
+If an orchestrator like `n8n` or LangGraph can still call your refund, email, or ticket APIs directly, then ACR is optional. If those systems only accept requests that carry valid gateway authorization, then the orchestrator is forced to go through the control plane.
+
+That is the recommended production model:
+
+- workflow tool decides what action it wants to attempt
+- ACR evaluates the action
+- protected executor verifies that ACR explicitly authorized the exact payload
+- internal system executes only after both checks pass
+
+For a higher-level integration view, see [docs/orchestrators.md](/Users/adamdistefano/Desktop/control_plane/docs/orchestrators.md).
+
+## Make It More Reusable
+
+This example now supports a small amount of packaging and runtime configuration:
+
+- [Dockerfile](/Users/adamdistefano/Desktop/control_plane/examples/protected_executor/Dockerfile)
+- [env example](/Users/adamdistefano/Desktop/control_plane/examples/protected_executor/.env.example)
+- `PROTECTED_EXECUTOR_ALLOWED_TOOLS` to restrict which demo tools are exposed
+
+Example container run:
+
+```bash
+docker build -f examples/protected_executor/Dockerfile -t acr-protected-executor .
+docker run --rm -p 8010:8010 --env-file examples/protected_executor/.env.example acr-protected-executor
+```
 
 ## Important Limitation
 

@@ -66,10 +66,19 @@ class ActionRequest(BaseModel):
     description: str | None = None
 
 
+class IntentRequest(BaseModel):
+    goal: str | None = None
+    justification: str | None = None
+    expected_effects: list[str] = Field(default_factory=list)
+    requested_by_step: str | None = None
+    metadata: dict = Field(default_factory=dict)
+
+
 class EvaluateRequest(BaseModel):
     agent_id: str
     action: ActionRequest
     context: dict = Field(default_factory=dict)
+    intent: IntentRequest | None = None
 
 
 # ── Background tasks ──────────────────────────────────────────────────────────
@@ -470,6 +479,7 @@ async def _emit_telemetry_event(
         parameters=filtered_params,
         description=req.action.description,
         context=req.context,
+        intent=req.intent.model_dump(exclude_none=True) if req.intent else {},
         start_time=start_time,
         end_time=end_time,
         duration_ms=total_ms,

@@ -32,10 +32,12 @@ def _scoped_rego_policy(*, agent_id: str, rego_policy: str) -> str:
 
 
 def _common_policy_bytes() -> bytes:
-    common_path = (
-        Path(__file__).resolve().parents[3] / "policies" / "acr" / "common.rego"
-    )
-    return common_path.read_bytes()
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        candidate = parent / "policies" / "acr" / "common.rego"
+        if candidate.exists():
+            return candidate.read_bytes()
+    raise FileNotFoundError("Unable to locate policies/acr/common.rego from policy_studio/distribution.py")
 
 
 def build_active_runtime_bundle(active_releases: list[PolicyReleaseRecord]) -> RuntimeBundleArtifact:

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from acr.common.time import utcnow
 from acr.db.models import DriftMetricRecord
 from acr.pillar3_drift.baseline import get_or_create_baseline, recompute_baseline
+from acr.pillar3_drift.governance import get_active_baseline_version
 from acr.pillar3_drift.models import DriftScore
 from acr.pillar3_drift.signals import (
     MIN_BASELINE_SAMPLES,
@@ -81,21 +82,44 @@ async def compute_drift_score(db: AsyncSession, agent_id: str) -> DriftScore:
     Compute the current drift score for an agent.
     This is called by the async background worker — NOT in the hot gateway path.
     """
-    baseline_record = await get_or_create_baseline(db, agent_id)
+    active_baseline = await get_active_baseline_version(db, agent_id)
+    baseline_version_id: str | None = None
+    baseline_status: str | None = None
 
-    if baseline_record.sample_count < MIN_BASELINE_SAMPLES:
-        # Not enough baseline data yet
-        return DriftScore(
-            agent_id=agent_id,
-            score=0.0,
-            signals=[],
-            sample_count=baseline_record.sample_count,
-            is_baseline_ready=False,
-        )
+    if active_baseline is not None:
+        sample_count = active_baseline.sample_count
+        baseline_data = active_baseline.baseline_data or {}
+        baseline_version_id = active_baseline.baseline_version_id
+        baseline_status = active_baseline.status
+        if sample_count < MIN_BASELINE_SAMPLES:
+            return DriftScore(
+                agent_id=agent_id,
+                score=0.0,
+                signals=[],
+                sample_count=sample_count,
+                is_baseline_ready=False,
+                baseline_version_id=baseline_version_id,
+                baseline_status=baseline_status,
+            )
+    else:
+        baseline_record = await get_or_create_baseline(db, agent_id)
 
-    # Recompute baseline periodically (every call for now; optimize with TTL in production)
-    baseline_record = await recompute_baseline(db, agent_id)
-    baseline_data = baseline_record.baseline_data
+        if baseline_record.sample_count < MIN_BASELINE_SAMPLES:
+            # Not enough baseline data yet
+            return DriftScore(
+                agent_id=agent_id,
+                score=0.0,
+                signals=[],
+                sample_count=baseline_record.sample_count,
+                is_baseline_ready=False,
+                baseline_version_id=None,
+                baseline_status=None,
+            )
+
+        # Recompute baseline periodically (every call for now; optimize with TTL in production)
+        baseline_record = await recompute_baseline(db, agent_id)
+        baseline_data = baseline_record.baseline_data
+        sample_count = baseline_record.sample_count
 
     current_metrics = await _collect_recent_metrics(db, agent_id, window_minutes=60)
     signals = compute_signals(current_metrics, baseline_data)
@@ -112,8 +136,10 @@ async def compute_drift_score(db: AsyncSession, agent_id: str) -> DriftScore:
         agent_id=agent_id,
         score=round(score, 4),
         signals=signals,
-        sample_count=baseline_record.sample_count,
+        sample_count=sample_count,
         is_baseline_ready=True,
+        baseline_version_id=baseline_version_id,
+        baseline_status=baseline_status,
     )
 
 

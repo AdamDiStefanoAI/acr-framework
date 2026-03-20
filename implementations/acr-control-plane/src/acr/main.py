@@ -15,9 +15,11 @@ from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from sqlalchemy import text
 
+from acr.common.correlation import get_correlation_id
 from acr.common.errors import ACRError
 from acr.common.operator_auth import OperatorPrincipal, require_operator_roles
 from acr.common.redis_client import close_redis, init_redis
+from acr.common.time import iso_utcnow
 from acr.config import assert_production_secrets, effective_schema_bootstrap_mode, settings
 from acr.db.database import engine, get_db
 from acr.db.models import Base
@@ -27,6 +29,8 @@ from acr.operator_console.router import router as console_router  # noqa: E402
 from acr.operator_console.router import static_files as console_static_files  # noqa: E402
 from acr.pillar4_observability.otel import setup_otel
 from acr.pillar4_observability.evidence import build_evidence_bundle
+from acr.pillar4_observability.schema import LatencyBreakdown
+from acr.pillar4_observability.telemetry import build_event, persist_event
 
 # ── Configure structlog ───────────────────────────────────────────────────────
 structlog.configure(
@@ -90,6 +94,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "approval_requests",
                 "telemetry_events",
                 "drift_metrics",
+                "drift_baseline_versions",
                 "operator_credentials",
                 "policy_drafts",
             }
@@ -282,31 +287,31 @@ async def list_events(
     agent_id: str | None = None,
     event_type: str | None = None,
     limit: int = 50,
+    db: AsyncSession = Depends(get_db),
     principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
 ) -> list[dict]:
-    async with async_session_factory() as db:
-        q = select(TelemetryEventRecord).order_by(TelemetryEventRecord.created_at.desc()).limit(limit)
-        if agent_id:
-            q = q.where(TelemetryEventRecord.agent_id == agent_id)
-        if event_type:
-            q = q.where(TelemetryEventRecord.event_type == event_type)
-        result = await db.execute(q)
-        records = result.scalars().all()
+    q = select(TelemetryEventRecord).order_by(TelemetryEventRecord.created_at.desc()).limit(limit)
+    if agent_id:
+        q = q.where(TelemetryEventRecord.agent_id == agent_id)
+    if event_type:
+        q = q.where(TelemetryEventRecord.event_type == event_type)
+    result = await db.execute(q)
+    records = result.scalars().all()
     return [r.payload for r in records]
 
 
 @app.get("/acr/events/{correlation_id}", tags=["Observability"])
 async def get_event_chain(
     correlation_id: str,
+    db: AsyncSession = Depends(get_db),
     principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
 ) -> list[dict]:
-    async with async_session_factory() as db:
-        result = await db.execute(
-            select(TelemetryEventRecord)
-            .where(TelemetryEventRecord.correlation_id == correlation_id)
-            .order_by(TelemetryEventRecord.created_at.asc())
-        )
-        records = result.scalars().all()
+    result = await db.execute(
+        select(TelemetryEventRecord)
+        .where(TelemetryEventRecord.correlation_id == correlation_id)
+        .order_by(TelemetryEventRecord.created_at.asc())
+    )
+    records = result.scalars().all()
     return [r.payload for r in records]
 
 
@@ -340,6 +345,19 @@ async def export_evidence_bundle(
 
 from acr.pillar3_drift.baseline import get_baseline_profile, reset_baseline  # noqa: E402
 from acr.pillar3_drift.detector import compute_drift_score  # noqa: E402
+from acr.pillar3_drift.governance import (  # noqa: E402
+    activate_baseline_version,
+    approve_baseline_version,
+    list_baseline_versions,
+    propose_baseline_version,
+    reject_baseline_version,
+)
+from acr.pillar1_identity.registry import get_manifest  # noqa: E402
+from acr.pillar3_drift.models import (  # noqa: E402
+    BaselineProposalRequest,
+    BaselineReviewRequest,
+    BaselineVersionResponse,
+)
 
 
 @app.get("/acr/drift/{agent_id}", tags=["Drift"])
@@ -365,12 +383,202 @@ async def get_baseline(
 @app.post("/acr/drift/{agent_id}/baseline/reset", tags=["Drift"])
 async def reset_agent_baseline(
     agent_id: str,
+    db: AsyncSession = Depends(get_db),
     principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin")),
 ) -> dict:
-    async with async_session_factory() as db:
-        await reset_baseline(db, agent_id)
-        await db.commit()
+    await reset_baseline(db, agent_id)
+    await _emit_baseline_governance_event(
+        db=db,
+        agent_id=agent_id,
+        actor=principal.subject,
+        action="baseline_reset",
+        reason="Governed baseline reset requested",
+        custom={
+            "baseline_action": "reset",
+            "actor": principal.subject,
+        },
+    )
     return {"status": "baseline_reset", "agent_id": agent_id}
+
+
+@app.get("/acr/drift/{agent_id}/baseline/versions", response_model=list[BaselineVersionResponse], tags=["Drift"])
+async def get_baseline_versions(
+    agent_id: str,
+    db: AsyncSession = Depends(get_db),
+    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+) -> list[BaselineVersionResponse]:
+    records = await list_baseline_versions(db, agent_id)
+    return [BaselineVersionResponse.model_validate(record) for record in records]
+
+
+@app.post("/acr/drift/{agent_id}/baseline/propose", response_model=BaselineVersionResponse, tags=["Drift"])
+async def propose_agent_baseline(
+    agent_id: str,
+    body: BaselineProposalRequest,
+    db: AsyncSession = Depends(get_db),
+    principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin")),
+) -> BaselineVersionResponse:
+    record = await propose_baseline_version(
+        db,
+        agent_id=agent_id,
+        actor=principal.subject,
+        window_days=body.window_days,
+        notes=body.notes,
+    )
+    await _emit_baseline_governance_event(
+        db=db,
+        agent_id=agent_id,
+        actor=principal.subject,
+        action="baseline_proposed",
+        reason="Candidate baseline proposed for review",
+        custom={
+            "baseline_action": "proposed",
+            "baseline_version_id": record.baseline_version_id,
+            "window_days": record.window_days,
+            "sample_count": record.sample_count,
+            "notes": record.notes,
+            "actor": principal.subject,
+        },
+    )
+    return BaselineVersionResponse.model_validate(record)
+
+
+@app.post("/acr/drift/{agent_id}/baseline/{baseline_version_id}/approve", response_model=BaselineVersionResponse, tags=["Drift"])
+async def approve_agent_baseline(
+    agent_id: str,
+    baseline_version_id: str,
+    body: BaselineReviewRequest,
+    db: AsyncSession = Depends(get_db),
+    principal: OperatorPrincipal = Depends(require_operator_roles("security_admin")),
+) -> BaselineVersionResponse:
+    record = await approve_baseline_version(
+        db,
+        agent_id=agent_id,
+        baseline_version_id=baseline_version_id,
+        actor=principal.subject,
+        notes=body.notes,
+    )
+    await _emit_baseline_governance_event(
+        db=db,
+        agent_id=agent_id,
+        actor=principal.subject,
+        action="baseline_approved",
+        reason="Candidate baseline approved",
+        custom={
+            "baseline_action": "approved",
+            "baseline_version_id": record.baseline_version_id,
+            "notes": record.notes,
+            "actor": principal.subject,
+        },
+    )
+    return BaselineVersionResponse.model_validate(record)
+
+
+@app.post("/acr/drift/{agent_id}/baseline/{baseline_version_id}/activate", response_model=BaselineVersionResponse, tags=["Drift"])
+async def activate_agent_baseline(
+    agent_id: str,
+    baseline_version_id: str,
+    body: BaselineReviewRequest,
+    db: AsyncSession = Depends(get_db),
+    principal: OperatorPrincipal = Depends(require_operator_roles("security_admin")),
+) -> BaselineVersionResponse:
+    record = await activate_baseline_version(
+        db,
+        agent_id=agent_id,
+        baseline_version_id=baseline_version_id,
+        actor=principal.subject,
+        notes=body.notes,
+    )
+    await _emit_baseline_governance_event(
+        db=db,
+        agent_id=agent_id,
+        actor=principal.subject,
+        action="baseline_activated",
+        reason="Approved baseline activated",
+        custom={
+            "baseline_action": "activated",
+            "baseline_version_id": record.baseline_version_id,
+            "sample_count": record.sample_count,
+            "notes": record.notes,
+            "actor": principal.subject,
+        },
+    )
+    return BaselineVersionResponse.model_validate(record)
+
+
+@app.post("/acr/drift/{agent_id}/baseline/{baseline_version_id}/reject", response_model=BaselineVersionResponse, tags=["Drift"])
+async def reject_agent_baseline(
+    agent_id: str,
+    baseline_version_id: str,
+    body: BaselineReviewRequest,
+    db: AsyncSession = Depends(get_db),
+    principal: OperatorPrincipal = Depends(require_operator_roles("security_admin")),
+) -> BaselineVersionResponse:
+    record = await reject_baseline_version(
+        db,
+        agent_id=agent_id,
+        baseline_version_id=baseline_version_id,
+        actor=principal.subject,
+        notes=body.notes,
+    )
+    await _emit_baseline_governance_event(
+        db=db,
+        agent_id=agent_id,
+        actor=principal.subject,
+        action="baseline_rejected",
+        reason="Candidate baseline rejected",
+        custom={
+            "baseline_action": "rejected",
+            "baseline_version_id": record.baseline_version_id,
+            "notes": record.notes,
+            "actor": principal.subject,
+        },
+    )
+    return BaselineVersionResponse.model_validate(record)
+
+
+async def _emit_baseline_governance_event(
+    *,
+    db: AsyncSession,
+    agent_id: str,
+    actor: str,
+    action: str,
+    reason: str,
+    custom: dict,
+) -> None:
+    correlation_id = get_correlation_id()
+    try:
+        manifest = await get_manifest(db, agent_id)
+        agent_purpose = manifest.purpose
+        agent_capabilities = manifest.allowed_tools
+    except Exception:
+        agent_purpose = "drift baseline governance"
+        agent_capabilities = []
+
+    event = build_event(
+        event_type="human_intervention",
+        agent_id=agent_id,
+        agent_purpose=agent_purpose,
+        agent_capabilities=agent_capabilities,
+        correlation_id=correlation_id,
+        session_id=None,
+        tool_name="baseline_governance",
+        parameters={},
+        description=f"Operator action: {action}",
+        context={"actor": actor, "baseline_action": action},
+        intent={},
+        start_time=iso_utcnow(),
+        end_time=iso_utcnow(),
+        duration_ms=0,
+        latency_breakdown=LatencyBreakdown(total_ms=0),
+        policies=[],
+        output_decision="allow",
+        output_reason=reason,
+        approval_request_id=None,
+        drift_score=None,
+        custom=custom,
+    )
+    await persist_event(db, event)
 
 
 # ── Metrics endpoint (Prometheus text format) ─────────────────────────────────

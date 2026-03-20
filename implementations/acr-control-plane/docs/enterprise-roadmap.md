@@ -58,7 +58,53 @@ Scope:
 - runbooks for Redis, OPA, Postgres, and kill-switch degradation
 - load-tested latency and dependency-failure benchmarks
 
-### 6. Provenance and Artifact Signing
+### 6. Governed Baseline Lifecycle
+Status: `done`
+
+What landed:
+- governed baseline version records with candidate, approved, active, rejected, and superseded states
+- operator APIs for propose, approve, activate, reject, and reset flows
+- drift scoring that prefers the active governed baseline when one exists
+- audit telemetry for baseline governance actions via `human_intervention` events
+- operator console support for proposing and reviewing baseline versions
+
+Remaining follow-up:
+- baseline diff views and richer operator UX around why one baseline should replace another
+- approval queue integration for baseline changes in highly regulated environments
+
+Why it matters:
+- a dynamic agent needs an approved path for defining the new normal rather than silent baseline drift
+
+### 7. Orchestrator Adoption Layer
+Status: `done`
+
+What landed:
+- orchestrator integration guide that positions ACR as the enforcement layer under workflow tools
+- `n8n` reference example and starter workflow export
+- stronger protected executor packaging and deployment guidance
+
+Remaining follow-up:
+- provider-specific adapters beyond `n8n`
+- deeper copy-paste examples for LangGraph and similar stacks
+
+Why it matters:
+- adoption depends on making ACR infrastructure teams can place underneath existing workflow tools, not optional glue code
+
+### 8. Intent-Aware Telemetry
+Status: `done`
+
+What landed:
+- optional `intent` payload on gateway evaluation requests
+- intent capture in structured telemetry and evidence flows
+
+Remaining follow-up:
+- policyable intent validation
+- model-based intent drift analysis and alerting
+
+Why it matters:
+- behavior alone is often too late; intent metadata gives operators earlier context about why the system is attempting an action
+
+### 9. Provenance and Artifact Signing
 Status: `planned`
 
 Scope:
@@ -66,7 +112,7 @@ Scope:
 - release provenance / attestation
 - verification guidance for deployers
 
-### 7. Kubernetes Policy Validation
+### 10. Kubernetes Policy Validation
 Status: `planned`
 
 Scope:
@@ -74,7 +120,7 @@ Scope:
 - add admission-policy examples
 - enforce secure defaults for network policy, secrets handling, and runtime settings
 
-### 8. Audit Record Hardening
+### 11. Audit Record Hardening
 Status: `planned`
 
 Scope:
@@ -82,7 +128,7 @@ Scope:
 - signed evidence manifests
 - retention and chain-of-custody guidance
 
-### 9. Operator Incident Workflow
+### 12. Operator Incident Workflow
 Status: `planned`
 
 Scope:
@@ -90,7 +136,7 @@ Scope:
 - correlation-centric investigation workflows
 - cleaner approval and escalation operations for on-call teams
 
-### 10. Reference Production Deployment
+### 13. Reference Production Deployment
 Status: `planned`
 
 Scope:

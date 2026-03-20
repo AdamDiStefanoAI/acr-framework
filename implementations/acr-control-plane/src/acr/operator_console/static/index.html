@@ -408,17 +408,52 @@
             <section class="panel">
               <div class="panel-head">
                 <h3>Drift Inspection</h3>
-                <span class="hint">Inspect current score and baseline posture</span>
+                <span class="hint">Inspect current score, baseline posture, and intent of the active norm</span>
               </div>
               <form id="drift-form" class="form-stack">
                 <input name="agent_id" placeholder="agent_id" required />
+                <div class="inline-grid">
+                  <input name="window_days" type="number" value="30" min="1" max="365" placeholder="window days" />
+                  <input name="intent_step" placeholder="workflow step or review label" />
+                </div>
+                <textarea name="notes" placeholder="baseline governance notes"></textarea>
                 <div class="button-row">
                   <button class="button primary" type="button" data-drift-action="score">Load Score</button>
                   <button class="button ghost" type="button" data-drift-action="baseline">Load Baseline</button>
+                  <button class="button ghost" type="button" data-drift-action="versions">List Versions</button>
+                  <button class="button primary" type="button" data-drift-action="propose">Propose Baseline</button>
                   <button class="button caution" type="button" data-drift-action="reset">Reset Baseline</button>
                 </div>
               </form>
               <pre id="drift-output" class="code-shell">No drift data loaded yet.</pre>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Baseline Governance</h3>
+                <span class="hint">Approve, activate, or reject a candidate baseline version</span>
+              </div>
+              <form id="baseline-review-form" class="form-stack">
+                <input name="agent_id" placeholder="agent_id" required />
+                <input name="baseline_version_id" placeholder="baseline_version_id" required />
+                <textarea name="notes" placeholder="review notes"></textarea>
+                <div class="button-row">
+                  <button class="button primary" type="button" data-baseline-review="approve">Approve</button>
+                  <button class="button ghost" type="button" data-baseline-review="activate">Activate</button>
+                  <button class="button danger" type="button" data-baseline-review="reject">Reject</button>
+                </div>
+              </form>
+              <pre id="baseline-review-output" class="code-shell">No baseline review action run yet.</pre>
+            </section>
+          </div>
+
+          <div class="grid two-up">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Governed Baseline Versions</h3>
+                <button class="button ghost small" type="button" data-drift-action="versions">Refresh</button>
+              </div>
+              <div id="drift-versions-table" class="table-shell"></div>
             </section>
 
             <section class="panel">

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import Depends, FastAPI, HTTPException
 
 from acr.gateway.executor_auth import (
@@ -25,9 +27,27 @@ _ALLOWED_TOOLS = {
 }
 
 
+def _exposed_tools() -> dict:
+    configured = os.getenv("PROTECTED_EXECUTOR_ALLOWED_TOOLS", "").strip()
+    if not configured:
+        return _ALLOWED_TOOLS
+    requested = {item.strip() for item in configured.split(",") if item.strip()}
+    return {name: tool for name, tool in _ALLOWED_TOOLS.items() if name in requested}
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/metadata")
+async def metadata() -> dict:
+    return {
+        "executor": "acr-protected-executor",
+        "exposed_tools": sorted(_exposed_tools().keys()),
+        "requires_gateway_execution_token": True,
+        "requires_brokered_credential": True,
+    }
 
 
 @app.post("/execute")
@@ -42,7 +62,7 @@ async def execute(
     if tool_name != brokered.tool_name or auth.agent_id != brokered.agent_id:
         raise HTTPException(status_code=403, detail="Brokered credential does not match execution authorization")
 
-    tool = _ALLOWED_TOOLS.get(tool_name)
+    tool = _exposed_tools().get(tool_name)
     if tool is None:
         raise HTTPException(status_code=403, detail=f"Tool '{tool_name}' is not exposed by this executor")
 

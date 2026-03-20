@@ -28,6 +28,7 @@ class RequestTelemetryObject(BaseModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
     description: str | None = None
     context: dict[str, Any] = Field(default_factory=dict)
+    intent: dict[str, Any] = Field(default_factory=dict)
 
 
 class LatencyBreakdown(BaseModel):

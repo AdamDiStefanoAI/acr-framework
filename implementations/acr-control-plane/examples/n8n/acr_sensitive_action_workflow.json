@@ -1,0 +1,254 @@
+{
+  "name": "ACR Sensitive Action Gate",
+  "description": "Reference n8n flow showing how a sensitive action is sent through ACR before execution.",
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [
+        240,
+        260
+      ]
+    },
+    {
+      "id": "set-payload",
+      "name": "Build Action Payload",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        500,
+        260
+      ],
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "agent_id",
+              "value": "customer-support-01"
+            },
+            {
+              "name": "tool_name",
+              "value": "create_ticket"
+            },
+            {
+              "name": "description",
+              "value": "Create support ticket from n8n workflow"
+            }
+          ],
+          "json": [
+            {
+              "name": "parameters",
+              "value": {
+                "title": "Customer issue follow-up",
+                "body": "Customer requested a call back",
+                "priority": "normal"
+              }
+            },
+            {
+              "name": "context",
+              "value": {
+                "session_id": "n8n-run-demo",
+                "hourly_spend_usd": 0.25
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "evaluate-action",
+      "name": "ACR Evaluate",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        780,
+        260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/acr/evaluate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.ACR_AGENT_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"agent_id\": $json.agent_id, \"action\": {\"tool_name\": $json.tool_name, \"parameters\": $json.parameters, \"description\": $json.description}, \"context\": $json.context}"
+      }
+    },
+    {
+      "id": "switch-decision",
+      "name": "Decision",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        1060,
+        260
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{$json.decision}}",
+        "rules": [
+          {
+            "operation": "equal",
+            "value2": "allow"
+          },
+          {
+            "operation": "equal",
+            "value2": "deny"
+          },
+          {
+            "operation": "equal",
+            "value2": "escalate"
+          }
+        ]
+      }
+    },
+    {
+      "id": "allow-result",
+      "name": "Allowed Result",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1330,
+        140
+      ],
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "allowed"
+            }
+          ],
+          "json": [
+            {
+              "name": "execution_result",
+              "value": "={{$json.execution_result || {}}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "deny-result",
+      "name": "Denied Result",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1330,
+        260
+      ],
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "denied"
+            },
+            {
+              "name": "reason",
+              "value": "={{$json.reason}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "escalate-result",
+      "name": "Escalated Result",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1330,
+        380
+      ],
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "escalated"
+            },
+            {
+              "name": "approval_request_id",
+              "value": "={{$json.approval_request_id}}"
+            },
+            {
+              "name": "queue",
+              "value": "={{$json.approval_queue}}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Action Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Action Payload": {
+      "main": [
+        [
+          {
+            "node": "ACR Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ACR Evaluate": {
+      "main": [
+        [
+          {
+            "node": "Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision": {
+      "main": [
+        [
+          {
+            "node": "Allowed Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Denied Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Escalated Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

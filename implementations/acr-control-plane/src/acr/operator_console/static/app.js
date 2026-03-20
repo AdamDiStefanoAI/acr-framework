@@ -380,6 +380,23 @@ async function loadContainment() {
   ]);
 }
 
+async function loadBaselineVersions(agentId = "") {
+  if (!agentId) {
+    document.getElementById("drift-versions-table").innerHTML = `<p class="hint">Enter an agent_id to inspect governed baseline versions.</p>`;
+    return;
+  }
+  const rows = await apiFetch(`/acr/drift/${encodeURIComponent(agentId)}/baseline/versions`);
+  renderTable("drift-versions-table", rows, [
+    { label: "Version", key: "baseline_version_id" },
+    { label: "Status", key: "status" },
+    { label: "Samples", render: (row) => String(row.sample_count) },
+    { label: "Window", render: (row) => `${row.window_days}d` },
+    { label: "Created By", key: "created_by" },
+    { label: "Activated By", key: "activated_by" },
+    { label: "Notes", render: (row) => escapeHtml(row.notes || "") },
+  ]);
+}
+
 async function refreshDashboard() {
   clearMessage();
   const results = await Promise.allSettled([
@@ -391,6 +408,7 @@ async function refreshDashboard() {
     loadApprovals(),
     loadEvents(),
     loadContainment(),
+    loadBaselineVersions(),
     loadMetrics(),
   ]);
   const failures = results.filter((result) => result.status === "rejected");
@@ -611,14 +629,55 @@ function installForms() {
 
   document.querySelectorAll("[data-drift-action]").forEach((button) => {
     button.addEventListener("click", async () => {
-      const { agent_id } = readForm(document.getElementById("drift-form"));
+      const data = readForm(document.getElementById("drift-form"));
       try {
         const action = button.dataset.driftAction;
-        const method = action === "reset" ? "POST" : "GET";
-        const suffix = action === "score" ? "" : action === "baseline" ? "/baseline" : "/baseline/reset";
-        const payload = await apiFetch(`/acr/drift/${encodeURIComponent(agent_id)}${suffix}`, { method });
+        let payload;
+        if (action === "score") {
+          payload = await apiFetch(`/acr/drift/${encodeURIComponent(data.agent_id)}`);
+        } else if (action === "baseline") {
+          payload = await apiFetch(`/acr/drift/${encodeURIComponent(data.agent_id)}/baseline`);
+        } else if (action === "versions") {
+          await loadBaselineVersions(data.agent_id);
+          payload = { status: "loaded_versions", agent_id: data.agent_id };
+        } else if (action === "propose") {
+          payload = await apiFetch(`/acr/drift/${encodeURIComponent(data.agent_id)}/baseline/propose`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              window_days: Number(data.window_days || 30),
+              notes: data.notes || data.intent_step || undefined,
+            }),
+          });
+          await loadBaselineVersions(data.agent_id);
+        } else {
+          payload = await apiFetch(`/acr/drift/${encodeURIComponent(data.agent_id)}/baseline/reset`, { method: "POST" });
+          await loadBaselineVersions(data.agent_id);
+        }
         document.getElementById("drift-output").textContent = JSON.stringify(payload, null, 2);
         setMessage(`Drift ${action} completed.`);
+      } catch (error) {
+        setMessage(error.message, true);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-baseline-review]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const data = readForm(document.getElementById("baseline-review-form"));
+      try {
+        const action = button.dataset.baselineReview;
+        const payload = await apiFetch(
+          `/acr/drift/${encodeURIComponent(data.agent_id)}/baseline/${encodeURIComponent(data.baseline_version_id)}/${action}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ notes: data.notes || undefined }),
+          }
+        );
+        document.getElementById("baseline-review-output").textContent = JSON.stringify(payload, null, 2);
+        await loadBaselineVersions(data.agent_id);
+        setMessage(`Baseline ${action} completed.`);
       } catch (error) {
         setMessage(error.message, true);
       }

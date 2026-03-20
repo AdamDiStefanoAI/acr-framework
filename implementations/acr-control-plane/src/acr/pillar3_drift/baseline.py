@@ -127,6 +127,21 @@ async def reset_baseline(db: AsyncSession, agent_id: str) -> DriftBaselineRecord
 
 
 async def get_baseline_profile(db: AsyncSession, agent_id: str) -> BaselineProfile:
+    from acr.pillar3_drift.governance import get_active_baseline_version
+
+    active = await get_active_baseline_version(db, agent_id)
+    if active is not None:
+        return BaselineProfile(
+            agent_id=agent_id,
+            metrics=active.baseline_data or {},
+            sample_count=active.sample_count,
+            collection_started_at=None,
+            last_updated_at=active.activated_at.isoformat() if active.activated_at else None,
+            baseline_version_id=active.baseline_version_id,
+            baseline_status=active.status,
+            is_governed=True,
+        )
+
     record = await get_or_create_baseline(db, agent_id)
     return BaselineProfile(
         agent_id=agent_id,
@@ -134,4 +149,7 @@ async def get_baseline_profile(db: AsyncSession, agent_id: str) -> BaselineProfi
         sample_count=record.sample_count,
         collection_started_at=record.collection_started_at.isoformat() if record.collection_started_at else None,
         last_updated_at=record.last_updated_at.isoformat() if record.last_updated_at else None,
+        baseline_version_id=None,
+        baseline_status=None,
+        is_governed=False,
     )

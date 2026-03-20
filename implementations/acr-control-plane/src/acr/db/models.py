@@ -149,6 +149,36 @@ class DriftBaselineRecord(Base):
     )
 
 
+# ── Drift baseline versions (governed snapshots) ─────────────────────────────
+
+class DriftBaselineVersionRecord(Base):
+    __tablename__ = "drift_baseline_versions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('candidate', 'approved', 'active', 'rejected', 'superseded')",
+            name="ck_drift_baseline_versions_status",
+        ),
+        Index("ix_drift_baseline_versions_agent_status", "agent_id", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
+    baseline_version_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    agent_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    baseline_data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    window_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="candidate", index=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    activated_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rejected_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
 # ── Drift metrics (raw samples) ───────────────────────────────────────────────
 
 class DriftMetricRecord(Base):

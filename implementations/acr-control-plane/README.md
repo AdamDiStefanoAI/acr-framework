@@ -8,8 +8,6 @@ If agents are going to reach customer data, ticketing systems, production infras
 
 This repo is that reference implementation.
 
-Messaging, evidence requirements, and pillar specifications are aligned with https://autonomouscontrol.io/control-plane.
-
 ## Why This Exists
 
 Most agent stacks are optimized for capability:
@@ -106,6 +104,8 @@ The included sample agent shows the control plane denying unsafe actions and esc
 
 There is also a runnable [protected executor example](examples/protected_executor/README.md) that verifies both `X-ACR-Execution-Token` and `X-ACR-Brokered-Credential`, so downstream services can reject direct-bypass requests that were not explicitly authorized by the gateway.
 
+For workflow builders and orchestration tools, there is now an explicit [orchestrator integration guide](docs/orchestrators.md) plus an [n8n reference example](examples/n8n/README.md) showing how to put ACR underneath the workflow layer instead of relying on optional user behavior.
+
 ## Quick Start
 
 ### 1. Start the stack
@@ -172,6 +172,7 @@ The sample flow demonstrates:
 ## Core API Surface
 
 Full API docs live in [docs/api.md](docs/api.md).
+Operational adoption guidance for workflow tools lives in [docs/orchestrators.md](docs/orchestrators.md).
 
 The main endpoints are:
 

@@ -18,6 +18,14 @@ from acr.pillar3_drift.baseline import (
     reset_baseline,
 )
 from acr.pillar3_drift.detector import compute_drift_score, run_drift_check
+from acr.pillar3_drift.governance import (
+    activate_baseline_version,
+    approve_baseline_version,
+    get_active_baseline_version,
+    list_baseline_versions,
+    propose_baseline_version,
+    reject_baseline_version,
+)
 
 # ── Shared DB fixture ─────────────────────────────────────────────────────────
 
@@ -167,6 +175,7 @@ class TestDriftBaseline:
         assert profile.agent_id == "agent-p"
         assert "tool_call_frequency" in profile.metrics
         assert profile.sample_count == 40
+        assert profile.is_governed is False
 
     async def test_get_baseline_profile_no_samples(self, db: AsyncSession):
         profile = await get_baseline_profile(db, "agent-fresh")
@@ -174,6 +183,68 @@ class TestDriftBaseline:
         assert profile.agent_id == "agent-fresh"
         assert profile.metrics == {}
         assert profile.sample_count == 0
+
+    async def test_propose_list_and_activate_governed_baseline_version(self, db: AsyncSession):
+        await _seed_samples(db, "agent-governed", n=40)
+        candidate = await propose_baseline_version(
+            db,
+            agent_id="agent-governed",
+            actor="security@example.com",
+            notes="Initial candidate",
+        )
+        await db.commit()
+
+        versions = await list_baseline_versions(db, "agent-governed")
+        assert len(versions) == 1
+        assert versions[0].baseline_version_id == candidate.baseline_version_id
+        assert candidate.status == "candidate"
+
+        approved = await approve_baseline_version(
+            db,
+            agent_id="agent-governed",
+            baseline_version_id=candidate.baseline_version_id,
+            actor="security@example.com",
+            notes="Reviewed and approved",
+        )
+        assert approved.status == "approved"
+
+        activated = await activate_baseline_version(
+            db,
+            agent_id="agent-governed",
+            baseline_version_id=candidate.baseline_version_id,
+            actor="security@example.com",
+            notes="Make this the new normal",
+        )
+        await db.commit()
+
+        assert activated.status == "active"
+        active = await get_active_baseline_version(db, "agent-governed")
+        assert active is not None
+        assert active.baseline_version_id == candidate.baseline_version_id
+
+        profile = await get_baseline_profile(db, "agent-governed")
+        assert profile.is_governed is True
+        assert profile.baseline_version_id == candidate.baseline_version_id
+        assert profile.baseline_status == "active"
+
+    async def test_reject_baseline_version(self, db: AsyncSession):
+        await _seed_samples(db, "agent-reject", n=40)
+        candidate = await propose_baseline_version(
+            db,
+            agent_id="agent-reject",
+            actor="security@example.com",
+        )
+        rejected = await reject_baseline_version(
+            db,
+            agent_id="agent-reject",
+            baseline_version_id=candidate.baseline_version_id,
+            actor="security@example.com",
+            notes="Unexpected drift source",
+        )
+        await db.commit()
+
+        assert rejected.status == "rejected"
+        assert rejected.rejected_by == "security@example.com"
 
 
 # ── Detector tests ────────────────────────────────────────────────────────────
@@ -215,6 +286,34 @@ class TestDriftDetector:
         signal_names = {s.name for s in score.signals}
         assert "denial_rate" in signal_names
         assert "tool_call_frequency" in signal_names
+
+    async def test_compute_drift_score_prefers_active_governed_baseline(self, db: AsyncSession):
+        await _seed_samples(db, "agent-active", n=40)
+        candidate = await propose_baseline_version(
+            db,
+            agent_id="agent-active",
+            actor="security@example.com",
+        )
+        await approve_baseline_version(
+            db,
+            agent_id="agent-active",
+            baseline_version_id=candidate.baseline_version_id,
+            actor="security@example.com",
+        )
+        await activate_baseline_version(
+            db,
+            agent_id="agent-active",
+            baseline_version_id=candidate.baseline_version_id,
+            actor="security@example.com",
+        )
+        await db.commit()
+
+        score = await compute_drift_score(db, "agent-active")
+        await db.commit()
+
+        assert score.is_baseline_ready is True
+        assert score.baseline_version_id == candidate.baseline_version_id
+        assert score.baseline_status == "active"
 
     async def test_run_drift_check_no_baseline(self, db: AsyncSession):
         """run_drift_check with no baseline → score not ready, graduated response not called."""

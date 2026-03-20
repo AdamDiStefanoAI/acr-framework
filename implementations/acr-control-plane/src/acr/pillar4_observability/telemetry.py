@@ -34,6 +34,7 @@ def build_event(
     parameters: dict,
     description: str | None,
     context: dict,
+    intent: dict,
     start_time: str,
     end_time: str,
     duration_ms: int,
@@ -43,6 +44,7 @@ def build_event(
     output_reason: str | None,
     approval_request_id: str | None,
     drift_score: float | None,
+    custom: dict | None = None,
 ) -> ACRTelemetryEvent:
     return ACRTelemetryEvent(
         event_type=event_type,
@@ -58,6 +60,7 @@ def build_event(
             parameters=parameters,
             description=description,
             context=context,
+            intent=intent,
         ),
         execution=ExecutionObject(
             start_time=start_time,
@@ -76,6 +79,7 @@ def build_event(
             acr_control_plane=AcrControlPlaneMetadata(version=settings.acr_version),
             drift_score=drift_score,
         ),
+        custom=custom or {},
     )
 
 

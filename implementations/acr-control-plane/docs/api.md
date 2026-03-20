@@ -42,6 +42,8 @@ Downstream executors can require:
 The helper dependency `acr.gateway.executor_auth.require_gateway_execution` verifies that the token is valid and that it authorizes the exact payload being executed.
 The helper dependency `acr.gateway.executor_auth.require_brokered_execution_credential` verifies the downstream credential and its intended audience.
 
+If you are integrating with workflow builders like `n8n`, treat these executor controls as the protected downstream boundary. See [orchestrators.md](/Users/adamdistefano/Desktop/control_plane/docs/orchestrators.md).
+
 ---
 
 ## Gateway
@@ -63,6 +65,12 @@ The main control plane endpoint. All agent action requests flow through here.
     "session_id": "sess-abc",
     "actions_this_minute": 5,
     "hourly_spend_usd": 1.20
+  },
+  "intent": {
+    "goal": "Look up customer context before responding",
+    "justification": "Support agent needs account details to resolve the case",
+    "requested_by_step": "lookup_customer_record",
+    "expected_effects": ["read customer record"]
   }
 }
 ```
@@ -241,6 +249,44 @@ Break-glass override. `reason` is required and logged as a security event.
 ```json
 {"decided_by": "security-lead@example.com", "reason": "Emergency override — incident response"}
 ```
+
+---
+
+## Drift Governance
+
+### GET /acr/drift/{agent_id}
+
+Returns the current drift score and, when present, the governed baseline version currently in force.
+
+### GET /acr/drift/{agent_id}/baseline
+
+Returns the effective baseline profile for the agent.
+
+### GET /acr/drift/{agent_id}/baseline/versions
+
+Lists governed baseline versions for the agent.
+
+### POST /acr/drift/{agent_id}/baseline/propose
+
+Creates a candidate baseline version from recent drift samples.
+
+### POST /acr/drift/{agent_id}/baseline/{baseline_version_id}/approve
+
+Marks a candidate baseline as approved.
+
+### POST /acr/drift/{agent_id}/baseline/{baseline_version_id}/activate
+
+Activates an approved baseline as the current governed baseline.
+
+### POST /acr/drift/{agent_id}/baseline/{baseline_version_id}/reject
+
+Rejects a candidate baseline.
+
+### POST /acr/drift/{agent_id}/baseline/reset
+
+Clears the current computed baseline and emits an audit event.
+
+All baseline governance actions are recorded as `human_intervention` telemetry events so they appear in `/acr/events` and evidence bundles.
 
 ---
 

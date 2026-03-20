@@ -22,6 +22,24 @@ class TestGatewayEvaluate:
         assert data["decision"] == "allow"
         assert "correlation_id" in data
 
+    async def test_allow_registered_agent_with_intent_metadata(self, async_client: AsyncClient, sample_agent) -> None:
+        resp = await async_client.post(
+            "/acr/evaluate",
+            json={
+                "agent_id": sample_agent.agent_id,
+                "action": {"tool_name": "query_customer_db", "parameters": {"customer_id": "C-001"}},
+                "context": {"session_id": "sess-abc"},
+                "intent": {
+                    "goal": "Retrieve customer details for a support case",
+                    "justification": "Agent needs account context before responding",
+                    "requested_by_step": "lookup_customer_record",
+                    "expected_effects": ["read customer record"],
+                },
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json()["decision"] == "allow"
+
     async def test_deny_unregistered_agent(self, async_client: AsyncClient) -> None:
         resp = await async_client.post(
             "/acr/evaluate",

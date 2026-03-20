@@ -30,6 +30,7 @@ class TestEvidenceBundles:
             parameters={"customer_id": "C-001"},
             description="Lookup customer",
             context={"session_id": "sess-1"},
+            intent={"goal": "retrieve customer record", "requested_by_step": "lookup"},
             start_time="2026-03-17T00:00:00Z",
             end_time="2026-03-17T00:00:01Z",
             duration_ms=100,

@@ -117,6 +117,21 @@ This mode gives you:
 5. Route all executor URLs to internal, purpose-built services. Do not point them at arbitrary third-party endpoints directly.
 6. Prefer `EXECUTOR_INTEGRATIONS_JSON` for refunds, email, and ticketing so payloads are shaped consistently for internal systems.
 
+### Orchestrator deployment model
+
+If you are layering ACR under `n8n`, LangGraph, or a custom workflow tool:
+
+1. Treat the workflow tool as the experience layer, not the final enforcement layer.
+2. Route sensitive workflow steps to `POST /acr/evaluate`.
+3. Keep protected executors and business APIs on internal networks.
+4. Do not give the workflow tool standing direct credentials for protected systems when ACR is meant to govern them.
+5. Require downstream services to verify `X-ACR-Execution-Token` and `X-ACR-Brokered-Credential`.
+
+Reference guide:
+
+- [orchestrator integration guide](/Users/adamdistefano/Desktop/control_plane/docs/orchestrators.md)
+- [n8n example](/Users/adamdistefano/Desktop/control_plane/examples/n8n/README.md)
+
 ### Scaling
 
 The gateway is stateless — scale horizontally behind a load balancer. All state lives in PostgreSQL and Redis.

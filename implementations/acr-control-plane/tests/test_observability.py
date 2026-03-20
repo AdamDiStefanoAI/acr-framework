@@ -21,6 +21,7 @@ class TestTelemetrySchema:
             parameters={"key": "value"},
             description="Test action",
             context={"actions_this_minute": 1},
+            intent={"goal": "lookup customer"},
             start_time="2026-03-16T00:00:00+00:00",
             end_time="2026-03-16T00:00:00.050+00:00",
             duration_ms=50,
@@ -36,6 +37,7 @@ class TestTelemetrySchema:
         assert event.agent.agent_id == "test-agent"
         assert event.output.decision == "allow"
         assert event.execution.duration_ms == 50
+        assert event.request.intent["goal"] == "lookup customer"
 
     def test_event_has_uuid_event_id(self) -> None:
         import uuid
@@ -50,6 +52,7 @@ class TestTelemetrySchema:
             parameters={},
             description=None,
             context={},
+            intent={},
             start_time="2026-01-01T00:00:00+00:00",
             end_time="2026-01-01T00:00:00+00:00",
             duration_ms=0,
@@ -75,6 +78,7 @@ class TestTelemetrySchema:
             parameters={},
             description=None,
             context={},
+            intent={},
             start_time="2026-01-01T00:00:00+00:00",
             end_time="2026-01-01T00:00:00+00:00",
             duration_ms=5,
@@ -88,3 +92,30 @@ class TestTelemetrySchema:
         payload = event.model_dump()
         assert payload["event_type"] == "ai_inference"
         assert "timestamp" in payload
+
+    def test_event_supports_custom_metadata(self) -> None:
+        event = build_event(
+            event_type="human_intervention",
+            agent_id="agent-audit",
+            agent_purpose="govern drift baselines",
+            agent_capabilities=[],
+            correlation_id="corr-audit",
+            session_id=None,
+            tool_name="baseline_governance",
+            parameters={},
+            description="Operator action",
+            context={"actor": "security@example.com"},
+            intent={},
+            start_time="2026-01-01T00:00:00+00:00",
+            end_time="2026-01-01T00:00:00+00:00",
+            duration_ms=0,
+            latency_breakdown=LatencyBreakdown(total_ms=0),
+            policies=[],
+            output_decision="allow",
+            output_reason="Candidate baseline approved",
+            approval_request_id=None,
+            drift_score=None,
+            custom={"baseline_action": "approved", "baseline_version_id": "blv-123"},
+        )
+        assert event.custom["baseline_action"] == "approved"
+        assert event.custom["baseline_version_id"] == "blv-123"

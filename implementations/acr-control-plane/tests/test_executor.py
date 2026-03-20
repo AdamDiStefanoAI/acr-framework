@@ -214,3 +214,15 @@ def test_production_requires_strong_executor_credential_secret(monkeypatch) -> N
 
     with pytest.raises(RuntimeError, match="EXECUTOR_CREDENTIAL_SECRET"):
         assert_production_secrets()
+
+
+@pytest.mark.asyncio
+async def test_protected_executor_metadata_respects_allowed_tool_env(monkeypatch) -> None:
+    from examples.protected_executor.app import app
+
+    monkeypatch.setenv("PROTECTED_EXECUTOR_ALLOWED_TOOLS", "query_customer_db,create_ticket")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/metadata")
+
+    assert response.status_code == 200
+    assert response.json()["exposed_tools"] == ["create_ticket", "query_customer_db"]
