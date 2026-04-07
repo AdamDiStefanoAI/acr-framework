@@ -12,9 +12,21 @@ spec:
       labels:
         app: acr-opa
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: acr-opa
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: opa
-          image: openpolicyagent/opa:0.70.0
+          image: openpolicyagent/opa:0.63.0-rootless
           args:
             - run
             - --server
@@ -24,6 +36,13 @@ spec:
             - --set=discovery.resource=/acr/policy-bundles/discovery.json
           ports:
             - containerPort: 8181
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           readinessProbe:
             httpGet:
               path: /health
@@ -43,3 +62,9 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+          volumeMounts:
+          - name: tmp
+            mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}

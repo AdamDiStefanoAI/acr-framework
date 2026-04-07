@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: acr-system
 resources:
   - namespace.yaml
+  - rbac.yaml
   - gateway-configmap.yaml
   - gateway-secret.example.yaml
   - gateway-deployment.yaml
@@ -12,3 +13,6 @@ resources:
   - opa-deployment.yaml
   - opa-service.yaml
   - networkpolicy.yaml
+  - pdbs.yaml
+  - hpas.yaml
+  - ingress.yaml

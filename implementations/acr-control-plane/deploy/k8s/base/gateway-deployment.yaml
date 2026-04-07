@@ -12,9 +12,22 @@ spec:
       labels:
         app: acr-gateway
     spec:
+      serviceAccountName: acr-gateway
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: acr-gateway
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: gateway
-          image: ghcr.io/synergeialabs/acr-framework-gateway:latest
+          image: acr-gateway:1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -23,6 +36,19 @@ spec:
                 name: acr-gateway-config
             - secretRef:
                 name: acr-gateway-secret
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
+            httpGet:
+              path: /acr/health
+              port: 8000
+            failureThreshold: 24
+            periodSeconds: 5
           readinessProbe:
             httpGet:
               path: /acr/ready
@@ -42,3 +68,9 @@ spec:
             limits:
               cpu: "1"
               memory: 1Gi
+          volumeMounts:
+          - name: tmp
+            mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}

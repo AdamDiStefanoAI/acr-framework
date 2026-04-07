@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator
 
 import httpx
@@ -27,7 +28,7 @@ from acr.gateway.middleware import CorrelationMiddleware
 from acr.auth.router import router as auth_router  # noqa: E402
 from acr.operator_console.router import router as console_router  # noqa: E402
 from acr.operator_console.router import static_files as console_static_files  # noqa: E402
-from acr.pillar4_observability.otel import setup_otel
+from acr.pillar4_observability.otel import setup_otel, setup_telemetry
 from acr.pillar4_observability.evidence import build_evidence_bundle
 from acr.pillar4_observability.schema import LatencyBreakdown
 from acr.pillar4_observability.telemetry import build_event, persist_event
@@ -67,6 +68,30 @@ async def _approval_expiry_loop() -> None:
                 log.warning("approval_expiry_error", error=str(exc))
 
 
+async def _retention_loop() -> None:
+    """Periodically drop partitions / delete rows older than 90 days (runs daily)."""
+    from acr.db.database import async_session_factory as _retention_session_factory
+
+    log = structlog.get_logger(__name__)
+    while True:
+        await asyncio.sleep(86400)  # daily
+        cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+        try:
+            async with _retention_session_factory() as db:
+                await db.execute(
+                    text("DELETE FROM telemetry_events WHERE created_at < :cutoff"),
+                    {"cutoff": cutoff},
+                )
+                await db.execute(
+                    text("DELETE FROM drift_metrics WHERE created_at < :cutoff"),
+                    {"cutoff": cutoff},
+                )
+                await db.commit()
+            log.info("retention_sweep_complete", cutoff=cutoff.isoformat())
+        except Exception as exc:
+            log.warning("retention_sweep_error", error=str(exc))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup: reject weak secrets in staging/production environments
@@ -74,6 +99,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Startup: initialise OpenTelemetry
     setup_otel()
+    setup_telemetry(app, engine)
 
     # Startup: initialise Redis connection pool
     try:
@@ -115,15 +141,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Startup: launch approval SLA expiry background loop
     expiry_task = asyncio.create_task(_approval_expiry_loop())
+    retention_task = asyncio.create_task(_retention_loop())
 
     yield
 
     # Shutdown: cancel background tasks
-    expiry_task.cancel()
-    try:
-        await expiry_task
-    except asyncio.CancelledError:
-        pass
+    for task in (expiry_task, retention_task):
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
     # Shutdown: close OPA HTTP client pool
     from acr.pillar2_policy.engine import close_opa_client
@@ -599,6 +627,7 @@ async def _emit_baseline_governance_event(
 
 from sqlalchemy import func as sa_func  # noqa: E402
 from acr.db.models import AgentRecord, ApprovalRequestRecord  # noqa: E402
+from acr.pillar4_observability.otel import get_meter  # noqa: E402
 
 
 @app.get("/acr/metrics", tags=["Observability"], response_class=PlainTextResponse)
@@ -607,10 +636,11 @@ async def prometheus_metrics(
 ) -> str:
     """
     Expose key ACR metrics in Prometheus text format.
+    Includes both OTLP-backed counters and DB-derived gauges.
     Scrape with prometheus/pushgateway or any Prometheus-compatible collector.
     """
     async with async_session_factory() as db:
-        # Total events by decision
+        # Total events by decision (DB-derived for historical accuracy)
         rows = await db.execute(
             select(
                 TelemetryEventRecord.event_type,
@@ -652,6 +682,9 @@ async def prometheus_metrics(
         "# HELP acr_active_agents Number of active registered agents",
         "# TYPE acr_active_agents gauge",
         f"acr_active_agents {active_agents}",
+        "# NOTE: acr.evaluate.total, acr.evaluate.latency, acr.approval.total,",
+        "# acr.containment.kills, acr.drift.score are exported via OTLP MeterProvider.",
+        "# Configure a Prometheus remote-write or OTLP collector for those metrics.",
         "",  # trailing newline
     ]
     return "\n".join(lines)

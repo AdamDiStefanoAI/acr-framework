@@ -1,7 +1,11 @@
-"""Controlled downstream execution for approved ACR actions."""
+"""Controlled downstream execution for approved ACR actions with circuit breaker."""
 from __future__ import annotations
 
+from datetime import timedelta
+
 import httpx
+import structlog
+from aiobreaker import CircuitBreaker, CircuitBreakerError
 
 from acr.common.errors import DownstreamExecutionError
 from acr.config import executor_integrations, settings, tool_executor_map
@@ -11,8 +15,13 @@ from acr.gateway.executor_auth import (
 )
 from acr.gateway.executor_integrations import execute_integrated_action
 
+logger = structlog.get_logger(__name__)
 
-async def execute_action(
+# Circuit breaker: opens after 3 failures in 30 seconds
+executor_breaker = CircuitBreaker(fail_max=3, timeout_duration=timedelta(seconds=30))
+
+
+async def _do_execute(
     *,
     agent_id: str,
     tool_name: str,
@@ -21,6 +30,7 @@ async def execute_action(
     correlation_id: str,
     approval_request_id: str | None = None,
 ) -> dict:
+    """Inner execution logic wrapped by the circuit breaker."""
     integration = executor_integrations().get(tool_name)
     if integration:
         return await execute_integrated_action(
@@ -87,3 +97,29 @@ async def execute_action(
         raise DownstreamExecutionError(
             f"Downstream executor unreachable for tool '{tool_name}': {exc}"
         ) from exc
+
+
+async def execute_action(
+    *,
+    agent_id: str,
+    tool_name: str,
+    parameters: dict,
+    description: str | None,
+    correlation_id: str,
+    approval_request_id: str | None = None,
+) -> dict:
+    try:
+        return await executor_breaker.call_async(
+            _do_execute,
+            agent_id=agent_id,
+            tool_name=tool_name,
+            parameters=parameters,
+            description=description,
+            correlation_id=correlation_id,
+            approval_request_id=approval_request_id,
+        )
+    except CircuitBreakerError:
+        logger.warning("executor_circuit_open", tool_name=tool_name)
+        raise DownstreamExecutionError(
+            f"Executor circuit breaker open for tool '{tool_name}' — too many recent failures"
+        )

@@ -47,6 +47,9 @@ dependencies = [
     "opentelemetry-instrumentation-httpx==0.59b0",
     "opentelemetry-instrumentation-sqlalchemy==0.59b0",
 
+    # Circuit breakers
+    "aiobreaker>=1.1",
+
     # Structured logging
     "structlog>=24.4.0,<26.0.0",
 

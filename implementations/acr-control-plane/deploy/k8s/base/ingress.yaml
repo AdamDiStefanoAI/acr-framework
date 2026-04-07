@@ -1,0 +1,39 @@
+# Prerequisites:
+#   - cert-manager must be installed in the cluster
+#     (https://cert-manager.io/docs/installation/)
+#   - A ClusterIssuer named "letsencrypt-prod" must exist
+#   - An nginx ingress controller must be deployed
+#
+# For AWS EKS with ACM:
+#   1. Remove the cert-manager annotation
+#   2. Remove the tls section
+#   3. Add these annotations instead:
+#     alb.ingress.kubernetes.io/scheme: internet-facing
+#     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:REGION:ACCOUNT:certificate/CERT-ID
+#     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+#   4. Change ingressClassName to "alb"
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: acr-gateway-ingress
+  namespace: acr-system
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - acr.example.com  # operator replaces this
+    secretName: acr-gateway-tls
+  rules:
+  - host: acr.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: acr-gateway
+            port:
+              number: 8000
