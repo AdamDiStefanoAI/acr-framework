@@ -24,6 +24,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import structlog
+
 from acr.common.correlation import get_correlation_id
 from acr.common.errors import (
     ACRError,
@@ -31,11 +33,11 @@ from acr.common.errors import (
     AgentNotRegisteredError,
     PolicyEngineError,
 )
-from acr.gateway.auth import require_agent_token
 from acr.common.redis_client import get_redis_or_none
 from acr.common.time import iso_utcnow
 from acr.config import settings
-from acr.db.database import async_session_factory, get_db
+from acr.db.database import BackgroundSessionLocal, async_session_factory, get_db
+from acr.gateway.auth import require_agent_token
 from acr.gateway.executor import execute_action
 from acr.pillar1_identity.registry import get_manifest
 from acr.pillar1_identity.validator import validate_agent_identity
@@ -45,8 +47,11 @@ from acr.pillar3_drift.baseline import record_metric_sample
 from acr.pillar4_observability.otel import acr_span
 from acr.pillar4_observability.schema import LatencyBreakdown, PolicyResult
 from acr.pillar4_observability.telemetry import build_event, log_event, persist_event
+from acr.pillar5_containment.graduated import _ISOLATE_PREFIX, _RESTRICT_PREFIX, _THROTTLE_PREFIX
 from acr.pillar5_containment.killswitch import is_agent_killed
 from acr.pillar6_authority.approval import create_approval_request
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/acr", tags=["Gateway"])
 
@@ -90,7 +95,7 @@ async def _record_drift_sample(
     latency_ms: int,
     correlation_id: str,
 ) -> None:
-    async with async_session_factory() as db:
+    async with BackgroundSessionLocal() as db:
         try:
             await record_metric_sample(
                 db,
@@ -102,15 +107,16 @@ async def _record_drift_sample(
                 latency_ms=latency_ms,
             )
             await db.commit()
-        except Exception:
+        except Exception as exc:
             await db.rollback()
+            logger.error("Background drift sample failed", error=str(exc), exc_info=True)
 
 
 async def _run_drift_check(agent_id: str) -> None:
     """Compute drift score and apply graduated response. Caches result to Redis."""
     from acr.pillar3_drift.detector import run_drift_check
 
-    async with async_session_factory() as db:
+    async with BackgroundSessionLocal() as db:
         try:
             drift = await run_drift_check(db, agent_id)
             await db.commit()
@@ -122,20 +128,22 @@ async def _run_drift_check(agent_id: str) -> None:
                     300,  # 5-minute TTL
                     str(drift.score),
                 )
-        except Exception:
+        except Exception as exc:
             await db.rollback()
+            logger.error("Background drift check failed", error=str(exc), exc_info=True)
 
 
 async def _persist_telemetry(event_dict: dict) -> None:
     from acr.pillar4_observability.schema import ACRTelemetryEvent
 
-    async with async_session_factory() as db:
+    async with BackgroundSessionLocal() as db:
         try:
             event = ACRTelemetryEvent.model_validate(event_dict)
             await persist_event(db, event)
             await db.commit()
-        except Exception:
+        except Exception as exc:
             await db.rollback()
+            logger.error("Background telemetry persist failed", error=str(exc), exc_info=True)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -219,6 +227,50 @@ async def evaluate(
         if await is_agent_killed(req.agent_id):
             raise AgentKilledError(f"Agent '{req.agent_id}' is killed")
 
+        # ── [1b] Graduated containment enforcement (Redis reads) ─────────────
+        # These keys are written by the drift-scoring background worker in
+        # graduated.py when an agent's drift score crosses a tier threshold.
+        redis = get_redis_or_none()
+        if redis is not None:
+            # Tier 3 — Isolate: override every decision to escalate
+            isolate_val = await redis.get(f"{_ISOLATE_PREFIX}{req.agent_id}")
+            if isolate_val == "1":
+                return JSONResponse(
+                    status_code=202,
+                    content={
+                        "decision": "escalate",
+                        "correlation_id": correlation_id,
+                        "reason": "agent_isolated_all_actions_require_approval",
+                    },
+                )
+
+            # Tier 2 — Restrict: only whitelisted tools are allowed
+            restrict_val = await redis.get(f"{_RESTRICT_PREFIX}{req.agent_id}")
+            if restrict_val is not None:
+                import json as _json
+                allowed_tools = _json.loads(restrict_val)
+                if req.action.tool_name not in allowed_tools:
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "decision": "deny",
+                            "correlation_id": correlation_id,
+                            "reason": "agent_restricted_tool_not_allowed",
+                        },
+                    )
+
+            # Tier 1 — Throttle: reduce effective rate limit by the throttle %
+            throttle_val = await redis.get(f"{_THROTTLE_PREFIX}{req.agent_id}")
+            if throttle_val is not None:
+                throttle_pct = int(throttle_val)
+                # We apply the throttle in step [3] by scaling the effective limit.
+                # Store for later use.
+                enriched_context_throttle_pct = throttle_pct
+            else:
+                enriched_context_throttle_pct = 100
+        else:
+            enriched_context_throttle_pct = 100
+
         # ── [2] Identity check ────────────────────────────────────────────────
         with acr_span("identity_check", {"agent.id": req.agent_id}):
             t0 = time.monotonic()
@@ -227,9 +279,15 @@ async def evaluate(
             identity_ms = int((time.monotonic() - t0) * 1000)
 
         # ── [3] Server-side rate limit counter ────────────────────────────────
-        # Override self-reported count with the authoritative server-side value
+        # Override self-reported count with the authoritative server-side value.
+        # When Tier 1 (throttle) is active the effective count is scaled up so
+        # the agent hits its limit sooner (e.g. 50% throttle → count * 2).
         server_count = await _get_rate_count(req.agent_id)
-        enriched_context = {**req.context, "actions_this_minute": server_count}
+        if enriched_context_throttle_pct < 100:
+            effective_count = int(server_count * (100 / enriched_context_throttle_pct))
+        else:
+            effective_count = server_count
+        enriched_context = {**req.context, "actions_this_minute": effective_count}
 
         # ── [4] Policy evaluation (OPA) ───────────────────────────────────────
         with acr_span("policy_evaluation", {"agent.id": req.agent_id, "action.tool": req.action.tool_name}):

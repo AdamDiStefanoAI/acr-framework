@@ -21,7 +21,7 @@ from acr.common.operator_auth import OperatorPrincipal, require_operator_roles
 from acr.common.redis_client import close_redis, init_redis
 from acr.common.time import iso_utcnow
 from acr.config import assert_production_secrets, effective_schema_bootstrap_mode, settings
-from acr.db.database import engine, get_db
+from acr.db.database import background_engine, engine, get_db
 from acr.db.models import Base
 from acr.gateway.middleware import CorrelationMiddleware
 from acr.auth.router import router as auth_router  # noqa: E402
@@ -129,9 +129,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from acr.pillar2_policy.engine import close_opa_client
     await close_opa_client()
 
-    # Shutdown: close Redis and DB pool
+    # Shutdown: close Redis and DB pools (hot-path + background)
     await close_redis()
     await engine.dispose()
+    await background_engine.dispose()
 
 
 # ── Application ───────────────────────────────────────────────────────────────
@@ -183,6 +184,15 @@ app.include_router(auth_router)
 app.include_router(identity_router)
 app.include_router(operator_keys_router)
 app.include_router(policy_studio_router)
+# When require_bundle_auth is False, override the bundle auth dependency with
+# a no-op so OPA can poll without credentials (rely on network policy instead).
+if not settings.require_bundle_auth:
+    from acr.policy_studio.router import _bundle_roles
+
+    app.dependency_overrides[_bundle_roles] = lambda: OperatorPrincipal(
+        subject="anonymous-bundle-client", roles=frozenset({"auditor"})
+    )
+
 app.include_router(bundle_router)
 app.include_router(containment_router)
 app.include_router(authority_router)

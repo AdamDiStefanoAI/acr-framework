@@ -1,9 +1,24 @@
-"""Pillar 5: Graduated response tiers — throttle → restrict → isolate → kill."""
+"""Pillar 5: Graduated response tiers — throttle → restrict → isolate → kill.
+
+Enforcement model
+-----------------
+Tiers 1–3 write Redis keys that the hot-path (/acr/evaluate) reads on every
+request to apply rate-limit throttling, tool restriction, or full isolation.
+Tier 4 (KILL) delegates to the independent kill-switch service.
+
+Redis key schema:
+  acr:throttle:{agent_id}   → "50"  (percent of normal rate limit)  TTL 3600s
+  acr:restrict:{agent_id}   → JSON list of allowed tool names       TTL 3600s
+  acr:isolate:{agent_id}    → "1"  (all actions require approval)   TTL 3600s
+"""
 from __future__ import annotations
+
+import json
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from acr.common.redis_client import get_redis_or_none
 from acr.common.time import iso_utcnow
 from acr.db.models import ContainmentActionRecord
 from acr.pillar5_containment.killswitch import kill_agent
@@ -14,6 +29,14 @@ from acr.pillar5_containment.models import (
 )
 
 logger = structlog.get_logger(__name__)
+
+# Redis key prefixes for graduated enforcement (read by the hot path)
+_THROTTLE_PREFIX = "acr:throttle:"
+_RESTRICT_PREFIX = "acr:restrict:"
+_ISOLATE_PREFIX = "acr:isolate:"
+
+# TTL for all graduated enforcement keys (1 hour)
+_ENFORCEMENT_TTL = 3600
 
 
 def tier_for_score(drift_score: float) -> ContainmentTier:
@@ -27,6 +50,39 @@ def tier_for_score(drift_score: float) -> ContainmentTier:
     if drift_score >= DRIFT_THRESHOLDS[ContainmentTier.THROTTLE]:
         return ContainmentTier.THROTTLE
     return ContainmentTier.NONE
+
+
+async def _enforce_tier_redis(tier: ContainmentTier, agent_id: str) -> None:
+    """Write the Redis enforcement key for tiers 1–3.
+
+    The hot path checks these keys to throttle, restrict, or isolate agents.
+    """
+    redis = get_redis_or_none()
+    if redis is None:
+        logger.warning("graduated_enforcement_skipped_no_redis", agent_id=agent_id, tier=tier.value)
+        return
+
+    try:
+        if tier == ContainmentTier.THROTTLE:
+            # Reduce the agent's effective rate limit to 50% of normal
+            await redis.setex(f"{_THROTTLE_PREFIX}{agent_id}", _ENFORCEMENT_TTL, "50")
+
+        elif tier == ContainmentTier.RESTRICT:
+            # Limit agent to an allowed-tool whitelist.  Default to empty list
+            # (no tools allowed); operators can update via the console.
+            await redis.setex(f"{_RESTRICT_PREFIX}{agent_id}", _ENFORCEMENT_TTL, json.dumps([]))
+
+        elif tier == ContainmentTier.ISOLATE:
+            # Block all tool execution — every action requires human approval.
+            await redis.setex(f"{_ISOLATE_PREFIX}{agent_id}", _ENFORCEMENT_TTL, "1")
+
+    except Exception as exc:
+        logger.error(
+            "graduated_enforcement_redis_write_failed",
+            agent_id=agent_id,
+            tier=tier.value,
+            error=str(exc),
+        )
 
 
 async def apply_graduated_response(
@@ -75,9 +131,11 @@ async def apply_graduated_response(
     db.add(record)
     await db.flush()
 
-    # Tier 4: actually invoke the kill switch
+    # Enforce: tiers 1–3 write Redis keys; tier 4 invokes the kill switch.
     if tier == ContainmentTier.KILL:
         await kill_agent(agent_id, reason=reason, operator_id="acr-drift-detector")
+    else:
+        await _enforce_tier_redis(tier, agent_id)
 
     return ContainmentAction(
         agent_id=agent_id,

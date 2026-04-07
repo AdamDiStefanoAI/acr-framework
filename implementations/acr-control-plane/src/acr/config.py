@@ -76,6 +76,11 @@ class Settings(BaseSettings):
     executor_timeout_seconds: float = 8.0
 
     # ── Policy bundle publishing ─────────────────────────────────────────────
+    # When True, bundle download and OPA discovery endpoints require operator
+    # authentication.  OPA's native bundle mechanism does not send auth headers
+    # by default, so deployments that let OPA poll these endpoints directly may
+    # need to set this to False and rely on network-level controls instead.
+    require_bundle_auth: bool = True
     policy_bundle_backend: str = "local"
     policy_bundle_local_dir: str = "./var/policy_bundles"
     policy_bundle_public_base_url: str = ""

@@ -377,7 +377,7 @@ class TestGraduatedResponse:
 
     async def test_isolate_tier_records_action(self, db: AsyncSession):
         from acr.pillar5_containment.graduated import apply_graduated_response
-        result = await apply_graduated_response(db, "agent-isolate", 0.88)
+        result = await apply_graduated_response(db, "agent-isolate", 0.92)
         await db.commit()
         assert result is not None
         assert result.action_type == "isolate"
