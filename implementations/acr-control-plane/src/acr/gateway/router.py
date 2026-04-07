@@ -44,7 +44,7 @@ from acr.pillar1_identity.validator import validate_agent_identity
 from acr.pillar2_policy.engine import evaluate_policy
 from acr.pillar2_policy.output_filter import filter_parameters
 from acr.pillar3_drift.baseline import record_metric_sample
-from acr.pillar4_observability.otel import acr_span
+from acr.pillar4_observability.otel import acr_span, get_meter
 from acr.pillar4_observability.schema import LatencyBreakdown, PolicyResult
 from acr.pillar4_observability.telemetry import build_event, log_event, persist_event
 from acr.pillar5_containment.graduated import _ISOLATE_PREFIX, _RESTRICT_PREFIX, _THROTTLE_PREFIX
@@ -322,6 +322,9 @@ async def evaluate(
         # Fetch cached drift score for inclusion in response
         drift_score = await _get_cached_drift_score(req.agent_id)
 
+        # Record OTEL metrics for all decisions
+        _record_evaluate_metrics(req.agent_id, policy_result.final_decision, total_ms)
+
         # ── [6] Escalate → approval queue ─────────────────────────────────────
         if policy_result.final_decision == "escalate":
             approval = await create_approval_request(
@@ -472,6 +475,19 @@ async def evaluate(
     except Exception:
         # Fail-secure: never expose stack traces to clients
         return JSONResponse(status_code=500, content={"decision": "deny", "reason": "Internal control plane error", "error_code": "INTERNAL_ERROR"})
+
+
+# ── OTEL metrics helper ──────────────────────────────────────────────────────
+
+def _record_evaluate_metrics(agent_id: str, decision: str, latency_ms: int) -> None:
+    """Increment OTLP counters/histograms for each evaluate call."""
+    meter = get_meter()
+    meter.create_counter("acr.evaluate.total").add(
+        1, {"agent_id": agent_id, "decision": decision}
+    )
+    meter.create_histogram("acr.evaluate.latency", unit="ms").record(
+        latency_ms, {"agent_id": agent_id}
+    )
 
 
 # ── Background task helpers ───────────────────────────────────────────────────

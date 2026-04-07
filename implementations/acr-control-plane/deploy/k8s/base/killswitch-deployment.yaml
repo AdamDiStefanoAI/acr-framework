@@ -12,9 +12,22 @@ spec:
       labels:
         app: acr-killswitch
     spec:
+      serviceAccountName: acr-killswitch
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: acr-killswitch
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: killswitch
-          image: ghcr.io/synergeialabs/acr-framework-killswitch:latest
+          image: acr-killswitch:1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8443
@@ -36,6 +49,19 @@ spec:
                   key: OPERATOR_API_KEYS_JSON
             - name: ACR_ENV
               value: "production"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
+            httpGet:
+              path: /acr/health
+              port: 8443
+            failureThreshold: 24
+            periodSeconds: 5
           readinessProbe:
             httpGet:
               path: /ready
@@ -55,3 +81,9 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+          volumeMounts:
+          - name: tmp
+            mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}

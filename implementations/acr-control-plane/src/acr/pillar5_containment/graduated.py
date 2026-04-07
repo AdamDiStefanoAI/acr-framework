@@ -134,6 +134,8 @@ async def apply_graduated_response(
     # Enforce: tiers 1–3 write Redis keys; tier 4 invokes the kill switch.
     if tier == ContainmentTier.KILL:
         await kill_agent(agent_id, reason=reason, operator_id="acr-drift-detector")
+        from acr.pillar4_observability.otel import get_meter
+        get_meter().create_counter("acr.containment.kills").add(1)
     else:
         await _enforce_tier_redis(tier, agent_id)
 

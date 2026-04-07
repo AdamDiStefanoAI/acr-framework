@@ -1,11 +1,13 @@
-"""Pillar 2: OPA policy engine client."""
+"""Pillar 2: OPA policy engine client with circuit breaker."""
 from __future__ import annotations
 
 import asyncio
 import time
+from datetime import timedelta
 
 import httpx
 import structlog
+from aiobreaker import CircuitBreaker, CircuitBreakerError
 
 from acr.common.errors import PolicyEngineError
 from acr.config import settings
@@ -42,37 +44,12 @@ async def close_opa_client() -> None:
         _opa_client = None
 
 
-async def evaluate_policy(
-    agent_manifest: dict,
-    action: dict,
-    context: dict,
-) -> PolicyEvaluationResult:
-    """
-    Send action context to OPA and parse allow/deny/escalate decision.
-    Targets <100ms at P95.
+# Circuit breaker: opens after 5 failures in 60 seconds, fails secure
+opa_breaker = CircuitBreaker(fail_max=5, timeout_duration=timedelta(seconds=60))
 
-    Retries up to 3 times on transient errors. Raises PolicyEngineError
-    (fail-secure) if all attempts fail — the gateway then denies the action.
-    """
-    start_ms = time.monotonic()
 
-    # Inject safe defaults so missing context keys never bypass policy checks.
-    # The gateway already sets actions_this_minute from the server-side counter,
-    # but this guards against any caller that builds context manually.
-    safe_context = {
-        "actions_this_minute": 0,
-        "hourly_spend_usd": 0.0,
-        **context,  # caller's real values override the defaults
-    }
-
-    opa_input = {
-        "input": {
-            "agent": agent_manifest,
-            "action": action,
-            "context": safe_context,
-        }
-    }
-
+async def _call_opa(opa_input: dict) -> dict:
+    """Execute the OPA HTTP call with retry logic. Raises on all-retries-exhausted."""
     last_exc: Exception | None = None
     data: dict = {}
 
@@ -94,7 +71,7 @@ async def evaluate_policy(
 
             resp.raise_for_status()
             data = resp.json()
-            break  # success — exit retry loop
+            return data
 
         except (httpx.RequestError, httpx.HTTPStatusError) as exc:
             last_exc = exc
@@ -107,23 +84,65 @@ async def evaluate_policy(
                     error=str(exc),
                 )
                 await asyncio.sleep(delay)
-    else:
-        # All retries exhausted — fail-secure
-        raise PolicyEngineError(
-            f"OPA unreachable after {_MAX_RETRIES} attempts: {last_exc}"
-        ) from last_exc
+
+    # All retries exhausted — raise to trip the circuit breaker
+    raise PolicyEngineError(
+        f"OPA unreachable after {_MAX_RETRIES} attempts: {last_exc}"
+    ) from last_exc
+
+
+async def evaluate_policy(
+    agent_manifest: dict,
+    action: dict,
+    context: dict,
+) -> PolicyEvaluationResult:
+    """
+    Send action context to OPA and parse allow/deny/escalate decision.
+    Targets <100ms at P95.
+
+    Uses a circuit breaker: if OPA fails 5 times in 60s, the circuit opens
+    and subsequent calls return deny immediately (fail-secure).
+    """
+    start_ms = time.monotonic()
+
+    # Inject safe defaults so missing context keys never bypass policy checks.
+    safe_context = {
+        "actions_this_minute": 0,
+        "hourly_spend_usd": 0.0,
+        **context,  # caller's real values override the defaults
+    }
+
+    opa_input = {
+        "input": {
+            "agent": agent_manifest,
+            "action": action,
+            "context": safe_context,
+        }
+    }
+
+    try:
+        data = await opa_breaker.call_async(_call_opa, opa_input)
+    except CircuitBreakerError:
+        logger.warning("opa_circuit_open", msg="OPA circuit open — failing secure")
+        elapsed_ms = int((time.monotonic() - start_ms) * 1000)
+        return PolicyEvaluationResult(
+            final_decision="deny",
+            decisions=[PolicyDecision(
+                policy_id="acr-circuit-open",
+                decision="deny",
+                reason="OPA circuit breaker open — failing secure",
+                latency_ms=elapsed_ms,
+            )],
+            reason="OPA circuit breaker open — failing secure",
+            latency_ms=elapsed_ms,
+        )
+    except PolicyEngineError:
+        raise
 
     elapsed_ms = int((time.monotonic() - start_ms) * 1000)
 
     # Defensive: treat missing/null `result` as empty (deny-by-default still applies)
     result = data.get("result") or {}
-
-    # Parse OPA result structure:
-    # result.allow = bool
-    # result.deny = list[str]  (denial reasons)
-    # result.escalate = bool
-    # result.escalate_queue = str
-    # result.escalate_sla_minutes = int
 
     deny_reasons: list[str] = result.get("deny", [])
     allow: bool = result.get("allow", False)
