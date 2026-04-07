@@ -18,9 +18,9 @@ class ContainmentTier(IntEnum):
 
 
 DRIFT_THRESHOLDS: dict[ContainmentTier, float] = {
-    ContainmentTier.THROTTLE: 0.6,
-    ContainmentTier.RESTRICT: 0.7,
-    ContainmentTier.ISOLATE: 0.85,
+    ContainmentTier.THROTTLE: 0.60,
+    ContainmentTier.RESTRICT: 0.75,
+    ContainmentTier.ISOLATE: 0.90,
     ContainmentTier.KILL: 0.95,
 }
 

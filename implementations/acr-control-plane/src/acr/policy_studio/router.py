@@ -176,10 +176,27 @@ async def rollback(
 bundle_router = APIRouter(prefix="/acr/policy-bundles", tags=["Policy Bundles"])
 
 
+# Bundle endpoints are gated behind require_bundle_auth (default True).
+# OPA's native bundle polling does not send auth headers by default, so
+# deployments that let OPA poll directly should either set
+# REQUIRE_BUNDLE_AUTH=false and restrict access via network policy, or
+# configure OPA with custom auth headers.
+
+_bundle_roles = require_operator_roles("agent_admin", "security_admin", "auditor")
+
+
 @bundle_router.get("/active.tar.gz")
 async def get_active_runtime_bundle(
     db: AsyncSession = Depends(get_db),
+    principal: OperatorPrincipal = Depends(_bundle_roles),
 ) -> Response:
+    """Download the active OPA policy bundle.
+
+    Requires operator authentication by default (settings.require_bundle_auth).
+    OPA's native bundle polling does not send auth headers, so deployments
+    that let OPA poll directly may set REQUIRE_BUNDLE_AUTH=false and rely on
+    network-level access control instead.  Auth is the safer default.
+    """
     records = await list_active_policy_releases(db)
     artifact = build_active_runtime_bundle(records)
     return Response(
@@ -193,6 +210,14 @@ async def get_active_runtime_bundle(
 
 
 @bundle_router.get("/discovery.json")
-async def get_opa_discovery_document(request: Request) -> JSONResponse:
+async def get_opa_discovery_document(
+    request: Request,
+    principal: OperatorPrincipal = Depends(_bundle_roles),
+) -> JSONResponse:
+    """OPA discovery document for bundle service configuration.
+
+    Requires operator authentication by default (settings.require_bundle_auth).
+    See active.tar.gz endpoint for the auth/network-policy trade-off notes.
+    """
     document = build_opa_discovery_document(service_base_url=str(request.base_url).rstrip("/"))
     return JSONResponse(document)

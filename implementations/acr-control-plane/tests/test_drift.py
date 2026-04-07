@@ -70,8 +70,11 @@ class TestContainmentTiers:
         from acr.pillar5_containment.models import ContainmentTier
 
         assert tier_for_score(0.5) == ContainmentTier.NONE
-        assert tier_for_score(0.6) == ContainmentTier.THROTTLE
-        assert tier_for_score(0.7) == ContainmentTier.RESTRICT
-        assert tier_for_score(0.85) == ContainmentTier.ISOLATE
+        assert tier_for_score(0.60) == ContainmentTier.THROTTLE
+        assert tier_for_score(0.74) == ContainmentTier.THROTTLE
+        assert tier_for_score(0.75) == ContainmentTier.RESTRICT
+        assert tier_for_score(0.89) == ContainmentTier.RESTRICT
+        assert tier_for_score(0.90) == ContainmentTier.ISOLATE
+        assert tier_for_score(0.94) == ContainmentTier.ISOLATE
         assert tier_for_score(0.95) == ContainmentTier.KILL
         assert tier_for_score(1.0) == ContainmentTier.KILL
