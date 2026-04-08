@@ -1,16 +1,16 @@
-# ACR Framework - Frequently Asked Questions
+# ACR Standard - Frequently Asked Questions
 
-**Last Updated:** March 2026
+**Last Updated:** April 2026
 
 ## General Questions
 
-### What is the ACR Framework?
+### What is the ACR Standard?
 
-ACR (Autonomous Control & Resilience) is an open reference architecture for governing autonomous AI systems at runtime. It defines six control layers that enable organizations to monitor, constrain, and intervene in AI system behavior while those systems are operating in production.
+ACR (Agentic Control at Runtime) is an open reference architecture for governing agentic AI systems at runtime. It defines six control layers that enable organizations to monitor, constrain, and intervene in AI system behavior while those systems are operating in production.
 
 ### Is ACR a product or a framework?
 
-ACR is a **framework** — an architectural specification and design pattern library, not a software product. Organizations implement ACR using their own tools or third-party solutions. Think of ACR like Kubernetes design principles or NIST frameworks: it defines what should be done, not how to build it.
+ACR is a standard for governing agentic AI systems at runtime. It defines the control architecture, enforcement model, and required safeguards. It is not a product, though it includes reference implementations.
 
 ### Who created ACR?
 
@@ -18,7 +18,7 @@ ACR was created by Adam DiStefano, AI Security & Governance Leader, based on yea
 
 ### Is ACR open source?
 
-Yes. ACR Framework is released under the Apache 2.0 license, allowing free use, modification, and distribution.
+Yes. ACR Standard is released under the Apache 2.0 license, allowing free use, modification, and distribution.
 
 ---
 
@@ -26,7 +26,7 @@ Yes. ACR Framework is released under the Apache 2.0 license, allowing free use, 
 
 ### What types of AI systems does ACR govern?
 
-ACR is designed for **autonomous AI systems** — systems that can access data, invoke tools, make decisions, and interact with enterprise infrastructure. This includes:
+ACR is designed for **agentic AI systems** — systems that can access data, invoke tools, make decisions, and interact with enterprise infrastructure. This includes:
 - AI agents (customer service bots, data analysts, code assistants)
 - Multi-agent workflows
 - AI-powered automation systems
@@ -60,14 +60,6 @@ ACR provides architectural patterns, not code. Implementation approaches:
 
 See [Implementation Guide](./acr-implementation-guide.md) for detailed deployment architectures.
 
-### What's the performance overhead of ACR?
-
-Performance depends on implementation, but targets:
-- **Policy enforcement:** <50ms input validation, <100ms output filtering
-- **Observability:** <10ms telemetry capture
-- **Total overhead:** <150ms per request (95th percentile)
-
-Lightweight implementations (SDK pattern) can achieve <20ms overhead. Heavy implementations (API gateway with ML-based policies) may exceed 200ms.
 
 ### Do I need to implement all six ACR layers?
 
@@ -229,12 +221,6 @@ Contributions welcome in several areas:
 
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for detailed process.
 
-### Is there a reference implementation?
-
-Not yet. ACR v1.0 is specification-only. Reference implementations (open source and commercial) are expected as the framework matures.
-
-Organizations implementing ACR are encouraged to share their architectures (see [Implementations](../../README.md#implementations)).
-
 ### Can I list my commercial product as ACR-compliant?
 
 Yes, if your product implements ACR specifications. Add your product to the [Implementations section](../../README.md#implementations) via pull request with:
@@ -245,13 +231,13 @@ Yes, if your product implements ACR specifications. Add your product to the [Imp
 
 ### Are there ACR community calls?
 
-Planned for Q2 2026. Join [GitHub Discussions](https://github.com/SynergeiaLabs/acr-framework/discussions) for announcements.
+Planned for Q2 2026. Join [GitHub Discussions](https://github.com/AdamDiStefanoAI/acr-framework/discussions) for announcements.
 
 ### How do I get support?
 
 ACR is a framework, not a product, so there's no official support. Resources:
-- [GitHub Discussions](https://github.com/SynergeiaLabs/acr-framework/discussions) for questions
-- [GitHub Issues](https://github.com/SynergeiaLabs/acr-framework/issues) for clarifications
+- [GitHub Discussions](https://github.com/AdamDiStefanoAI/acr-framework/discussions) for questions
+- [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-framework/issues) for clarifications
 - Community implementations may offer their own support
 
 ---
@@ -278,7 +264,7 @@ Formal certification program may be established if ecosystem demand warrants.
 ### Can I request new features or framework changes?
 
 Yes. Process:
-1. Open [GitHub Discussion](https://github.com/SynergeiaLabs/acr-framework/discussions) to propose idea
+1. Open [GitHub Discussion](https://github.com/AdamDiStefanoAI/acr-framework/discussions) to propose idea
 2. Community feedback and refinement
 3. If accepted, create GitHub Issue
 4. Submit pull request with specification updates
@@ -325,4 +311,4 @@ Compliance-focused resources:
 
 ---
 
-Still have questions? Ask in [GitHub Discussions](https://github.com/SynergeiaLabs/acr-framework/discussions).
+Still have questions? Ask in [GitHub Discussions](https://github.com/AdamDiStefanoAI/acr-framework/discussions).
