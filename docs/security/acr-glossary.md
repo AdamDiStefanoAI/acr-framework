@@ -1,6 +1,6 @@
-# ACR Framework Glossary
+# ACR Standard Glossary
 
-This glossary defines key terminology used within the ACR Framework and related governance models.
+This glossary defines key terminology used within the ACR Standard and related governance models.
 
 ---
 
@@ -112,7 +112,7 @@ Runtime governance enables organizations to enforce policies, monitor behavior, 
 
 ---
 
-# Autonomous Control & Resilience (ACR)
+# Agentic Control at Runtime (ACR)
 
 A governance framework designed to manage the behavior of autonomous AI systems operating in enterprise environments.
 
