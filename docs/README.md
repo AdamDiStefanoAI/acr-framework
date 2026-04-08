@@ -1,6 +1,6 @@
-# ACR Framework Documentation
+# ACR Standard Documentation
 
-This directory contains the full ACR (Autonomous Control & Resilience) Framework documentation—a reference architecture for governing autonomous AI systems at runtime.
+This directory contains the full ACR (Agentic Control at Runtime) Standard documentation—a reference architecture for governing autonomous AI systems at runtime.
 
 ## Get Started by Role
 
@@ -45,4 +45,4 @@ Choose a path based on your role. Each path is 3–5 steps to the most relevant 
 
 ---
 
-[← Back to ACR Framework](../README.md)
+[← Back to ACR Standard](../README.md)
