@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the ACR Framework documentation and repository are documented in this file.
+All notable changes to the ACR Standard documentation and repository are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Initial release of the ACR Framework (Autonomous Control & Resilience for Runtime AI Governance).
+- Initial release of the ACR Standard (Agentic Control at Runtime).
 - Six pillar specifications: Identity & Purpose Binding, Behavioral Policy Enforcement, Autonomy Drift Detection, Execution Observability, Self-Healing & Containment, Human Authority.
 - Control plane and runtime architecture documentation.
 - Implementation guide with reference architectures (Kubernetes+OPA, AWS Serverless+Cedar, API Gateway+Custom).
@@ -31,4 +31,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - README: "Why ACR?" positioning (OWASP/MITRE-style), adoption and governance links, citation and branding section, implementations section updated with ADOPTION reference.
   - Pull request template for documentation and spec changes.
 
-[1.0]: https://github.com/SynergeiaLabs/acr-framework/releases/tag/v1.0
+[1.0]: https://github.com/AdamDiStefanoAI/acr-framework/releases/tag/v1.0
