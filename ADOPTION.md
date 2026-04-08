@@ -88,11 +88,11 @@ For papers, reports, and standards:
 ```bibtex
 @misc{acr-framework-2026,
   author       = {DiStefano, Adam},
-  title        = {ACR Framework: Autonomous Control \& Resilience for Runtime AI Governance},
+  title        = {ACR Standard: Agentic Control at Runtime},
   year         = {2026},
   publisher    = {GitHub},
   journal      = {GitHub repository},
-  howpublished = {\url{https://github.com/SynergeiaLabs/acr-framework}},
+  howpublished = {\url{https://github.com/AdamDiStefaniAI/acr-framework}},
   version      = {1.0}
 }
 ```
@@ -100,7 +100,7 @@ For papers, reports, and standards:
 **Plain text:**  
 ACR Standard: Agentic Control at Runtime. DiStefano, A. (2026). https://github.com/AdamDiStefanoAI/acr-framework. Version 1.0.
 
-**STRIKE threat model:** When referencing the threat model specifically, cite "STRIKE Threat Model (ACR Framework)" and link to [docs/security/acr-strike-threat-model.md](docs/security/acr-strike-threat-model.md).
+**STRIKE threat model:** When referencing the threat model specifically, cite "STRIKE Threat Model (ACR Standard)" and link to [docs/security/acr-strike-threat-model.md](docs/security/acr-strike-threat-model.md).
 
 ---
 
