@@ -60,6 +60,18 @@ class AgentKilledError(ACRError):
     error_code = "AGENT_KILLED"
 
 
+class AgentLifecycleError(ACRError):
+    """Raised when an agent's lifecycle state forbids the requested operation.
+
+    Examples:
+      * trying to evaluate against a draft or retired agent
+      * trying to transition into an illegal state (e.g. retired → active)
+    """
+
+    status_code = 403
+    error_code = "AGENT_LIFECYCLE_INVALID"
+
+
 # ── Policy ────────────────────────────────────────────────────────────────────
 
 class PolicyDeniedError(ACRError):

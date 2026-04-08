@@ -27,6 +27,18 @@ from acr.db.database import Base
 
 class AgentRecord(Base):
     __tablename__ = "agents"
+    __table_args__ = (
+        CheckConstraint(
+            "lifecycle_state IN ('draft', 'active', 'deprecated', 'retired')",
+            name="ck_agents_lifecycle_state",
+        ),
+        CheckConstraint(
+            "health_status IN ('unknown', 'healthy', 'degraded', 'unhealthy')",
+            name="ck_agents_health_status",
+        ),
+        Index("ix_agents_parent_agent_id", "parent_agent_id"),
+        Index("ix_agents_lifecycle_state", "lifecycle_state"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     agent_id: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
@@ -39,6 +51,33 @@ class AgentRecord(Base):
     boundaries: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     credential_hash: Mapped[str | None] = mapped_column(String(256), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # ── Registry expansion (migration 0012) ───────────────────────────────────
+    # Agent's own semantic version. Used for lineage and audit trails.
+    version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0.0")
+    # Optional parent agent — for orchestrator → subagent relationships.
+    # Plain string (not FK) so deletion of a parent does not cascade to its
+    # subtree; lineage history is preserved even after a parent is retired.
+    parent_agent_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Declared capability tags (e.g. ["customer.read", "billing.refund"]).
+    # Distinct from `allowed_tools`: capabilities describe *what the agent can do*
+    # (skills/intents), tools describe *what the agent is permitted to call*.
+    capabilities: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    # Lifecycle state: draft → active → deprecated → retired.
+    # `is_active` is preserved for backwards compatibility and kept in sync:
+    # is_active==False iff lifecycle_state=='retired'.
+    lifecycle_state: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="active"
+    )
+    # Health observability. Updated by heartbeat endpoint and the periodic
+    # health sweep loop in main.py.
+    health_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="unknown"
+    )
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

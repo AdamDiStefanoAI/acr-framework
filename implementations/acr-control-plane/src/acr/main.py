@@ -68,6 +68,30 @@ async def _approval_expiry_loop() -> None:
                 log.warning("approval_expiry_error", error=str(exc))
 
 
+async def _heartbeat_sweep_loop() -> None:
+    """Periodically downgrade agents whose heartbeats have gone stale."""
+    from acr.db.database import async_session_factory
+    from acr.pillar1_identity.registry import sweep_stale_heartbeats
+
+    log = structlog.get_logger(__name__)
+    interval = max(1, settings.agent_heartbeat_sweep_interval_seconds)
+    threshold = settings.agent_heartbeat_stale_seconds
+    if threshold <= 0:
+        log.info("heartbeat_sweep_disabled")
+        return
+    while True:
+        await asyncio.sleep(interval)
+        async with async_session_factory() as db:
+            try:
+                downgraded = await sweep_stale_heartbeats(db, threshold_seconds=threshold)
+                await db.commit()
+                if downgraded:
+                    log.info("heartbeat_sweep_downgraded", count=downgraded)
+            except Exception as exc:
+                await db.rollback()
+                log.warning("heartbeat_sweep_error", error=str(exc))
+
+
 async def _retention_loop() -> None:
     """Periodically drop partitions / delete rows older than 90 days (runs daily)."""
     from acr.db.database import async_session_factory as _retention_session_factory
@@ -142,11 +166,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup: launch approval SLA expiry background loop
     expiry_task = asyncio.create_task(_approval_expiry_loop())
     retention_task = asyncio.create_task(_retention_loop())
+    heartbeat_task = asyncio.create_task(_heartbeat_sweep_loop())
 
     yield
 
     # Shutdown: cancel background tasks
-    for task in (expiry_task, retention_task):
+    for task in (expiry_task, retention_task, heartbeat_task):
         task.cancel()
         try:
             await task

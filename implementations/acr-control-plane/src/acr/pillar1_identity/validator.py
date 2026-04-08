@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from acr.common.errors import (
     AgentKilledError,
+    AgentLifecycleError,
     AgentNotFoundError,
     AgentNotRegisteredError,
     InvalidTokenError,
@@ -16,7 +17,7 @@ from acr.common.errors import (
 from acr.common.time import utcnow
 from acr.config import ALLOWED_JWT_ALGORITHMS, settings
 from acr.db.models import AgentRecord
-from acr.pillar1_identity.registry import get_agent
+from acr.pillar1_identity.registry import ACTIVE_LIFECYCLE_STATES, get_agent
 
 
 def issue_token(agent_id: str) -> tuple[str, int]:
@@ -80,5 +81,14 @@ async def validate_agent_identity(
 
     if not record.is_active:
         raise AgentNotRegisteredError(f"Agent '{agent_id}' is deregistered")
+
+    # Lifecycle gate. `draft` agents have been registered but not yet
+    # promoted to operational use, and `retired` agents are terminal.
+    # Both must be blocked from the evaluate hot path.
+    if record.lifecycle_state not in ACTIVE_LIFECYCLE_STATES:
+        raise AgentLifecycleError(
+            f"Agent '{agent_id}' is in lifecycle state '{record.lifecycle_state}' "
+            f"and cannot evaluate actions"
+        )
 
     return record

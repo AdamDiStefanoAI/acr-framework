@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     schema_bootstrap_mode: str = "auto"
     strict_dependency_startup: bool = False
 
+    # ── Agent registry health sweep ──────────────────────────────────────────
+    # Agents that have heartbeated at least once but haven't sent another in
+    # this many seconds are downgraded to health_status='unhealthy'. Set to 0
+    # to disable the sweep entirely.
+    agent_heartbeat_stale_seconds: int = 300
+    agent_heartbeat_sweep_interval_seconds: int = 60
+
     # ── Approval webhook ──────────────────────────────────────────────────────
     webhook_url: str = ""
     # HMAC-SHA256 key for signing outbound webhook payloads.
