@@ -327,6 +327,6 @@ We welcome PRs, issues, and threat-model discussions. See [`CONTRIBUTING.md`](./
 [![Adopt ACR](https://img.shields.io/badge/Adopt-ACR-00d4ff.svg?style=for-the-badge)](./ADOPTION.md)
 [![Star on GitHub](https://img.shields.io/github/stars/AdamDiStefanoAI/acr-framework?style=for-the-badge&logo=github)](https://github.com/AdamDiStefanoAI/acr-framework)
 
-**[autonomouscontrol.io/control-plane](https://autonomouscontrol.io/control-plane)**
+**[runtimecontrol.io/control-plane](https://runtimecontrol.io/control-plane)**
 
 </div>
