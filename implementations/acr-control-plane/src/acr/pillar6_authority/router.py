@@ -64,6 +64,8 @@ async def approve(
     record = await ap.approve(db, request_id, principal.subject, body.reason)
     if settings.execute_allowed_actions:
         await ap.execute_approval(db, record)
+    await db.commit()
+    await db.refresh(record)
     return _to_response(record)
 
 
@@ -75,6 +77,8 @@ async def deny(
     principal: OperatorPrincipal = Depends(require_operator_roles("approver", "security_admin")),
 ) -> ApprovalResponse:
     record = await ap.deny(db, request_id, principal.subject, body.reason)
+    await db.commit()
+    await db.refresh(record)
     return _to_response(record)
 
 
@@ -92,4 +96,6 @@ async def override(
     record = await ap.override(db, request_id, principal.subject, body.reason)
     if settings.execute_allowed_actions:
         await ap.execute_approval(db, record)
+    await db.commit()
+    await db.refresh(record)
     return _to_response(record)

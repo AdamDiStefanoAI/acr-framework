@@ -158,7 +158,7 @@ async def test_approval_flow_real_stack(async_client, db: AsyncSession):
             f"/acr/approvals/{approval_id}/approve",
             json={"notes": "Integration test approval"},
         )
-        assert approve_resp.status_code in (200, 404)
+        assert approve_resp.status_code == 200
 
     # If denied, that's also valid — the policy blocked a forbidden tool
     elif data.get("decision") == "deny":

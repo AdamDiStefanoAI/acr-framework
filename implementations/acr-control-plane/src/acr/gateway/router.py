@@ -447,6 +447,9 @@ async def evaluate(
                 approval_queue=policy_result.approval_queue or "default",
                 sla_minutes=policy_result.sla_minutes or 240,
             )
+            # Make the approval request visible before returning its request_id.
+            await db.commit()
+            await db.refresh(approval)
             _queue_background_tasks(
                 background_tasks,
                 agent_id=req.agent_id,

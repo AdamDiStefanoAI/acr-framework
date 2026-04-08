@@ -112,6 +112,10 @@ class TestGatewayEvaluate:
         assert data["decision"] == "escalate"
         assert "approval_request_id" in data
 
+        approval_resp = await async_client.get(f"/acr/approvals/{data['approval_request_id']}")
+        assert approval_resp.status_code == 200
+        assert approval_resp.json()["status"] == "pending"
+
     async def test_allow_executes_downstream_when_enabled(self, async_client: AsyncClient, sample_agent) -> None:
         with (
             patch.object(__import__("acr.gateway.router", fromlist=["settings"]).settings, "execute_allowed_actions", True),
