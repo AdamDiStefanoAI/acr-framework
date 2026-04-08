@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://autonomouscontrol.io/assets/ACR_1.png" alt="ACR Framework" width="780" />
+<img src="https://runtimecontrol.io/assets/ACR_1.png" alt="ACR Framework" width="780" />
 
 # **ACR Standard**
 ### Agentic Control at Runtime
