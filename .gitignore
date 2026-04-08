@@ -19,6 +19,9 @@ _site/
 *.pyc
 __pycache__/
 
+# Generated local policy bundle artifacts
+implementations/acr-control-plane/var/policy_bundles/
+
 # Optional: uncomment if using a doc generator
 # node_modules/
 # .venv/
