@@ -189,6 +189,8 @@ jobs:
           python -m pip install --upgrade build
           python -m build --outdir dist
         working-directory: ${{ env.CONTROL_PLANE_DIR }}
-
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ${{ env.CONTROL_PLANE_DIR }}/dist
+
