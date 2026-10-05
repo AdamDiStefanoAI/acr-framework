@@ -2,7 +2,7 @@
 
 **A runtime control plane for AI agents that take real actions.**
 
-This is the reference control plane for the [ACR Framework](https://github.com/SynergeiaLabs/acr-framework): a governance gateway that sits between autonomous agents and the systems they want to touch.
+This is the reference control plane for the [ACR Framework](https://github.com/AdamDiStefanoAI/acr-framework): a governance gateway that sits between autonomous agents and the systems they want to touch.
 
 If agents are going to reach customer data, ticketing systems, production infrastructure, payment flows, or regulated workflows, then logs and prompt rules are not enough. You need a real enforcement point on the execution path.
 
@@ -331,4 +331,4 @@ If the answer is "the prompt," "the app code," or "we’d catch it in logs," thi
 
 Apache 2.0. See [LICENSE](LICENSE).
 
-Based on the [ACR Framework specification](https://github.com/SynergeiaLabs/acr-framework).
+Based on the [ACR Framework specification](https://github.com/AdamDiStefanoAI/acr-framework).
