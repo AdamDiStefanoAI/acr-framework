@@ -20,6 +20,7 @@
 [![Postgres](https://img.shields.io/badge/store-PostgreSQL-336791.svg?logo=postgresql&logoColor=white)]()
 [![Redis](https://img.shields.io/badge/cache-Redis-DC382D.svg?logo=redis&logoColor=white)]()
 [![Kubernetes](https://img.shields.io/badge/deploy-Kubernetes-326CE5.svg?logo=kubernetes&logoColor=white)]()
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-ACR_Standard-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/company/acr-standard/)
 
 **[📖 Docs](./docs)** · **[🚀 Quickstart](#-quickstart-60-seconds)** · **[🏛️ For Executives](#-for-security--risk-executives)** · **[⚙️ For Engineers](#%EF%B8%8F-for-engineers)** · **[🛡️ Threat Model](docs/security/acr-strike-threat-model.md)** · **[📋 Adopt ACR](./ADOPTION.md)**
 
