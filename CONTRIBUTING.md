@@ -49,7 +49,6 @@ ACR is an **architectural framework**. The core repository focuses on specificat
 - **Compliance:** [docs/compliance/](docs/compliance/)
 - **Security:** [docs/security/](docs/security/)
 - **Guides:** [docs/guides/](docs/guides/)
-- **Images:** [docs/images/](docs/images/)
 
 When adding or moving documents, update internal links so they work from the new paths (e.g. from `docs/pillars/` use `../architecture/` for architecture docs and `../../README.md` for the repo root).
 
