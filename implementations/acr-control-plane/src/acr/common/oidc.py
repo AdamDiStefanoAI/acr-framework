@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import secrets
 import time
 from collections.abc import Mapping
@@ -9,9 +8,10 @@ from typing import Any
 from urllib.parse import urlencode
 
 import httpx
-from jose import jwt
+import jwt
 
 from acr.common.errors import UnauthorizedOperatorError
+from acr.common.jwt_validation import decode_jwt
 from acr.config import oidc_role_mapping, settings
 
 _JWKS_CACHE: dict[str, Any] = {"expires_at": 0.0, "keys": {}}
@@ -50,24 +50,33 @@ async def validate_oidc_token(token: str, *, nonce: str | None = None) -> OIDCPr
         raise UnauthorizedOperatorError("OIDC is not enabled")
 
     # Only decode the header to extract `kid` for key lookup — never trust `alg`.
-    header = jwt.get_unverified_header(token)
+    try:
+        header = jwt.get_unverified_header(token)
+    except jwt.PyJWTError as exc:
+        raise UnauthorizedOperatorError("OIDC token is invalid") from exc
     kid = header.get("kid")
     jwks = await _fetch_jwks()
     key = None
     for item in jwks["keys"]:
-        if item.get("kid") == kid:
+        if isinstance(item, dict) and item.get("kid") == kid:
             key = item
             break
     if key is None:
         raise UnauthorizedOperatorError("OIDC signing key not found")
 
-    claims = jwt.decode(
-        token,
-        key,
-        algorithms=["RS256", "ES256"],
-        audience=settings.oidc_client_id,
-        issuer=settings.oidc_issuer,
-    )
+    try:
+        # PyJWT takes a parsed JWK, not the raw provider dictionary. Keep the
+        # algorithm allowlist fixed and bind verification to the selected key.
+        signing_key = jwt.PyJWK.from_dict(key)
+        claims = decode_jwt(
+            token,
+            signing_key,
+            algorithms=["RS256", "ES256"],
+            audience=settings.oidc_client_id,
+            issuer=settings.oidc_issuer,
+        )
+    except (jwt.PyJWTError, ValueError, TypeError) as exc:
+        raise UnauthorizedOperatorError("OIDC token is invalid") from exc
     if nonce is not None and claims.get("nonce") != nonce:
         raise UnauthorizedOperatorError("OIDC nonce validation failed")
 
@@ -137,7 +146,7 @@ def create_signed_payload(payload: dict[str, Any], *, ttl_seconds: int) -> str:
 
 
 def decode_signed_payload(token: str) -> dict[str, Any]:
-    return jwt.decode(
+    return decode_jwt(
         token,
         settings.operator_session_secret,
         algorithms=["HS256"],

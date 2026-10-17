@@ -1,4 +1,5 @@
 """Shared gateway request/response models for server and SDK consumers."""
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -6,7 +7,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from acr.pillar2_policy.models import PolicyDecision
-
 
 DecisionLiteral = Literal["allow", "deny", "modify", "escalate"]
 

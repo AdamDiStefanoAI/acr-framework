@@ -56,7 +56,9 @@ async def test_refund_executor_integration_payload(monkeypatch) -> None:
     from acr.config import executor_integrations
 
     executor_integrations.cache_clear()
-    with patch("acr.gateway.executor_integrations.httpx.AsyncClient", return_value=_ClientStub(captured)):
+    with patch(
+        "acr.gateway.executor_integrations.httpx.AsyncClient", return_value=_ClientStub(captured)
+    ):
         result = await execute_action(
             agent_id="agent-1",
             tool_name="issue_refund",
@@ -83,7 +85,9 @@ async def test_email_executor_integration_payload(monkeypatch) -> None:
     from acr.config import executor_integrations
 
     executor_integrations.cache_clear()
-    with patch("acr.gateway.executor_integrations.httpx.AsyncClient", return_value=_ClientStub(captured)):
+    with patch(
+        "acr.gateway.executor_integrations.httpx.AsyncClient", return_value=_ClientStub(captured)
+    ):
         result = await execute_action(
             agent_id="agent-2",
             tool_name="send_email",
@@ -100,7 +104,9 @@ async def test_email_executor_integration_payload(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_generic_executor_includes_short_lived_gateway_proof(monkeypatch) -> None:
     captured: list[dict] = []
-    monkeypatch.setattr(settings, "tool_executor_map_json", '{"query_customer_db":"https://executor.internal/run"}')
+    monkeypatch.setattr(
+        settings, "tool_executor_map_json", '{"query_customer_db":"https://executor.internal/run"}'
+    )
     monkeypatch.setattr(settings, "executor_hmac_secret", "x" * 64)
     monkeypatch.setattr(settings, "executor_credential_secret", "c" * 64)
     monkeypatch.setattr(settings, "executor_auth_ttl_seconds", 120)
@@ -125,7 +131,9 @@ async def test_generic_executor_includes_short_lived_gateway_proof(monkeypatch) 
 @pytest.mark.asyncio
 async def test_downstream_executor_can_verify_gateway_execution_token(monkeypatch) -> None:
     captured: list[dict] = []
-    monkeypatch.setattr(settings, "tool_executor_map_json", '{"query_customer_db":"https://executor.internal/run"}')
+    monkeypatch.setattr(
+        settings, "tool_executor_map_json", '{"query_customer_db":"https://executor.internal/run"}'
+    )
     monkeypatch.setattr(settings, "executor_hmac_secret", "y" * 64)
     monkeypatch.setattr(settings, "executor_credential_secret", "b" * 64)
     tool_executor_map.cache_clear()
@@ -197,7 +205,11 @@ def test_production_requires_executor_secret_for_live_execution(monkeypatch) -> 
     monkeypatch.setattr(settings, "audit_signing_secret", "a" * 64)
     monkeypatch.setattr(settings, "jwt_secret_key", "z" * 64)
     monkeypatch.setattr(settings, "killswitch_secret", "k" * 64)
-    monkeypatch.setattr(settings, "operator_api_keys_json", '{"bootstrap":{"subject":"ops","roles":["security_admin"]}}')
+    monkeypatch.setattr(
+        settings,
+        "operator_api_keys_json",
+        '{"bootstrap":{"subject":"ops","roles":["security_admin"]}}',
+    )
     monkeypatch.setattr(settings, "service_operator_api_key", "svc_" + ("x" * 40))
     monkeypatch.setattr(settings, "oidc_enabled", False)
 
@@ -212,7 +224,11 @@ def test_production_requires_strong_executor_credential_secret(monkeypatch) -> N
     monkeypatch.setattr(settings, "audit_signing_secret", "a" * 64)
     monkeypatch.setattr(settings, "jwt_secret_key", "z" * 64)
     monkeypatch.setattr(settings, "killswitch_secret", "k" * 64)
-    monkeypatch.setattr(settings, "operator_api_keys_json", '{"bootstrap":{"subject":"ops","roles":["security_admin"]}}')
+    monkeypatch.setattr(
+        settings,
+        "operator_api_keys_json",
+        '{"bootstrap":{"subject":"ops","roles":["security_admin"]}}',
+    )
     monkeypatch.setattr(settings, "service_operator_api_key", "svc_" + ("x" * 40))
     monkeypatch.setattr(settings, "oidc_enabled", False)
 

@@ -1,7 +1,9 @@
 """Official Python SDK for the ACR control plane."""
+
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import httpx
 from pydantic import BaseModel
@@ -254,7 +256,9 @@ class AsyncACRClient:
         return _parse_model(response, AgentResponse)
 
     async def get_agent(self, agent_id: str) -> AgentResponse:
-        response = await self._client.get(f"/acr/agents/{agent_id}", headers=self._operator_headers())
+        response = await self._client.get(
+            f"/acr/agents/{agent_id}", headers=self._operator_headers()
+        )
         return _parse_model(response, AgentResponse)
 
     async def issue_agent_token(self, agent_id: str) -> TokenResponse:

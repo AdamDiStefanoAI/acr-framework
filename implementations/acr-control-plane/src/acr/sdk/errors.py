@@ -1,4 +1,5 @@
 """SDK-specific errors for client and adapter consumers."""
+
 from __future__ import annotations
 
 from acr.gateway.models import EvaluateResponse

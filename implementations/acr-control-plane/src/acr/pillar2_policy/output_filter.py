@@ -1,9 +1,10 @@
 """Pillar 2: Output filtering — PII redaction applied to action parameters."""
+
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from collections.abc import Mapping, Iterator
 from typing import Any
 
 import structlog

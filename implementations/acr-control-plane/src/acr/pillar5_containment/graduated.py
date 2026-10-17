@@ -11,6 +11,7 @@ Redis key schema:
   acr:restrict:{agent_id}   → JSON list of allowed tool names       TTL 3600s
   acr:isolate:{agent_id}    → "1"  (all actions require approval)   TTL 3600s
 """
+
 from __future__ import annotations
 
 import json
@@ -19,13 +20,12 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from acr.common.redis_client import get_redis_or_none
-from acr.common.time import iso_utcnow
 from acr.db.models import ContainmentActionRecord
 from acr.pillar5_containment.killswitch import kill_agent
 from acr.pillar5_containment.models import (
+    DRIFT_THRESHOLDS,
     ContainmentAction,
     ContainmentTier,
-    DRIFT_THRESHOLDS,
 )
 
 logger = structlog.get_logger(__name__)
@@ -106,9 +106,7 @@ async def apply_graduated_response(
         ContainmentTier.KILL: "kill",
     }[tier]
 
-    reason = (
-        f"Automated containment: drift_score={drift_score:.3f} triggered Tier {tier.value} ({action_type})"
-    )
+    reason = f"Automated containment: drift_score={drift_score:.3f} triggered Tier {tier.value} ({action_type})"
 
     logger.warning(
         "graduated_response",
@@ -135,6 +133,7 @@ async def apply_graduated_response(
     if tier == ContainmentTier.KILL:
         await kill_agent(agent_id, reason=reason, operator_id="acr-drift-detector")
         from acr.pillar4_observability.otel import get_meter
+
         get_meter().create_counter("acr.containment.kills").add(1)
     else:
         await _enforce_tier_redis(tier, agent_id)

@@ -1,4 +1,5 @@
 """Governed baseline lifecycle for drift detection."""
+
 from __future__ import annotations
 
 import uuid
@@ -12,7 +13,9 @@ from acr.db.models import DriftBaselineRecord, DriftBaselineVersionRecord
 from acr.pillar3_drift.baseline import get_or_create_baseline, recompute_baseline
 
 
-async def list_baseline_versions(db: AsyncSession, agent_id: str) -> list[DriftBaselineVersionRecord]:
+async def list_baseline_versions(
+    db: AsyncSession, agent_id: str
+) -> list[DriftBaselineVersionRecord]:
     result = await db.execute(
         select(DriftBaselineVersionRecord)
         .where(DriftBaselineVersionRecord.agent_id == agent_id)

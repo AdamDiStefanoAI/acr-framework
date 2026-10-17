@@ -1,11 +1,11 @@
 """Pillar 3: Drift scoring engine — computes composite drift score from baseline."""
+
 from __future__ import annotations
 
-import time
 from datetime import timedelta
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from acr.common.time import utcnow
@@ -32,8 +32,7 @@ async def _collect_recent_metrics(
     cutoff = utcnow() - timedelta(minutes=window_minutes)
 
     result = await db.execute(
-        select(DriftMetricRecord)
-        .where(
+        select(DriftMetricRecord).where(
             DriftMetricRecord.agent_id == agent_id,
             DriftMetricRecord.created_at >= cutoff,
         )
@@ -58,6 +57,7 @@ async def _collect_recent_metrics(
     error_rate = errors / n
 
     import math
+
     tool_counts: dict[str, int] = {}
     for s in samples:
         t = s.tool_name or "_unknown"

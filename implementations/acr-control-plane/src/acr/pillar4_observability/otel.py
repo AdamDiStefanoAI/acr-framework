@@ -1,8 +1,10 @@
 """Pillar 4: OpenTelemetry trace/span/metrics integration."""
+
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
 
 from opentelemetry import metrics, propagate, trace
 from opentelemetry.baggage.propagation import W3CBaggagePropagator
@@ -102,7 +104,9 @@ def get_meter() -> metrics.Meter:
 
 
 @contextmanager
-def acr_span(name: str, attributes: dict[str, Any] | None = None) -> Generator[trace.Span, None, None]:
+def acr_span(
+    name: str, attributes: dict[str, Any] | None = None
+) -> Generator[trace.Span, None, None]:
     """Context manager that creates a named ACR span with error recording."""
     tracer = get_tracer()
     with tracer.start_as_current_span(name) as span:

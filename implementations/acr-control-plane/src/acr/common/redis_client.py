@@ -1,4 +1,5 @@
 """Shared async Redis client — singleton connection pool."""
+
 from __future__ import annotations
 
 import redis.asyncio as aioredis

@@ -1,4 +1,5 @@
 """Pillar 4: ACR Telemetry Schema — Pydantic models matching the spec."""
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -9,8 +10,8 @@ from acr.common.correlation import new_correlation_id
 from acr.common.time import iso_utcnow
 from acr.config import settings
 
-
 # ── Sub-objects ───────────────────────────────────────────────────────────────
+
 
 class AgentTelemetryObject(BaseModel):
     agent_id: str

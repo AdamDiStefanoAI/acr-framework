@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: GitHub Discussions
-    url: https://github.com/SynergeiaLabs/acr-framework/discussions
-    about: Ask questions and discuss the framework
+  - name: Contributor setup and checks
+    url: https://github.com/AdamDiStefanoAI/acr-framework/blob/main/CONTRIBUTING.md
+    about: Set up the control plane and run local checks before contributing

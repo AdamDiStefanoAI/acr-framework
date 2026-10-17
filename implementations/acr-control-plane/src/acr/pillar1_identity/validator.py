@@ -1,19 +1,22 @@
 """Pillar 1: Token validation and identity verification."""
+
 from __future__ import annotations
 
 from datetime import timedelta
 
-from jose import JWTError, jwt
+import jwt
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from jwt import ExpiredSignatureError, PyJWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from acr.common.errors import (
-    AgentKilledError,
     AgentLifecycleError,
     AgentNotFoundError,
     AgentNotRegisteredError,
     InvalidTokenError,
     TokenExpiredError,
 )
+from acr.common.jwt_validation import decode_jwt
 from acr.common.time import utcnow
 from acr.config import ALLOWED_JWT_ALGORITHMS, settings
 from acr.db.models import AgentRecord
@@ -47,18 +50,25 @@ def decode_token(token: str) -> str:
             f"Configured JWT algorithm '{settings.jwt_algorithm}' is not allowed"
         )
     try:
-        payload = jwt.decode(
+        verification_key = settings.jwt_secret_key
+        if settings.jwt_algorithm == "RS256":
+            # The same configured private PEM is used to issue tokens. PyJWT
+            # requires its public half for RSA verification, unlike python-jose.
+            verification_key = jwt.get_algorithm_by_name("RS256").prepare_key(verification_key)
+            if isinstance(verification_key, RSAPrivateKey):
+                verification_key = verification_key.public_key()
+        payload = decode_jwt(
             token,
-            settings.jwt_secret_key,
+            verification_key,
             algorithms=[settings.jwt_algorithm],  # explicit allowlist, not token header
         )
         agent_id: str | None = payload.get("sub")
         if not agent_id:
             raise InvalidTokenError("Token missing subject claim")
         return agent_id
-    except JWTError as exc:
-        if "expired" in str(exc).lower():
-            raise TokenExpiredError("Token has expired") from exc
+    except ExpiredSignatureError as exc:
+        raise TokenExpiredError("Token has expired") from exc
+    except PyJWTError as exc:
         raise InvalidTokenError(f"Invalid token: {exc}") from exc
 
 
@@ -76,8 +86,8 @@ async def validate_agent_identity(
     """
     try:
         record = await get_agent(db, agent_id)
-    except AgentNotFoundError:
-        raise AgentNotRegisteredError(f"Agent '{agent_id}' is not registered")
+    except AgentNotFoundError as exc:
+        raise AgentNotRegisteredError(f"Agent '{agent_id}' is not registered") from exc
 
     if not record.is_active:
         raise AgentNotRegisteredError(f"Agent '{agent_id}' is deregistered")

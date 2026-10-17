@@ -10,9 +10,7 @@ from acr.config import settings
 
 
 class TestPolicyDraftAPI:
-    async def test_create_list_get_and_update_policy_draft(
-        self, async_client: AsyncClient
-    ) -> None:
+    async def test_create_list_get_and_update_policy_draft(self, async_client: AsyncClient) -> None:
         create_resp = await async_client.post(
             "/acr/policy-drafts",
             json={
@@ -53,7 +51,7 @@ class TestPolicyDraftAPI:
                     "purpose": "Handle support cases",
                     "risk_tier": "high",
                 },
-                "rego_policy": "package acr\ndeny contains reason if { true; reason := \"blocked\" }",
+                "rego_policy": 'package acr\ndeny contains reason if { true; reason := "blocked" }',
                 "wizard_inputs": {"template": "customer_support", "risk_tier": "high"},
             },
         )
@@ -80,7 +78,7 @@ class TestPolicyDraftAPI:
                         "max_cost_per_hour_usd": 5.0,
                     },
                 },
-                "rego_policy": "package acr\nescalate if { input.action.tool_name == \"issue_refund\" }",
+                "rego_policy": 'package acr\nescalate if { input.action.tool_name == "issue_refund" }',
                 "wizard_inputs": {
                     "template": "customer_support",
                     "escalate_tool": "issue_refund",
@@ -242,7 +240,10 @@ class TestPolicyDraftAPI:
         assert activate_resp.status_code == 200
         activated = activate_resp.json()
         assert activated["activation_status"] == "active"
-        assert activated["active_bundle_uri"] == "s3://acr-policy-bundles/prod/releases/s3-publish-bot-01/active/current.tar.gz"
+        assert (
+            activated["active_bundle_uri"]
+            == "s3://acr-policy-bundles/prod/releases/s3-publish-bot-01/active/current.tar.gz"
+        )
 
         assert len(uploads) == 2
         active_upload = uploads[1]
@@ -272,7 +273,7 @@ class TestPolicyDraftAPI:
                         "max_cost_per_hour_usd": 5.0,
                     },
                 },
-                "rego_policy": "package acr\nescalate if {\n    input.action.tool_name == \"issue_refund\"\n}",
+                "rego_policy": 'package acr\nescalate if {\n    input.action.tool_name == "issue_refund"\n}',
                 "wizard_inputs": {"template": "customer_support"},
             },
         )
@@ -306,4 +307,7 @@ class TestPolicyDraftAPI:
         discovery_resp = await async_client.get("/acr/policy-bundles/discovery.json")
         assert discovery_resp.status_code == 200
         discovery = discovery_resp.json()
-        assert discovery["bundles"]["acr_active_runtime"]["resource"] == "/acr/policy-bundles/active.tar.gz"
+        assert (
+            discovery["bundles"]["acr_active_runtime"]["resource"]
+            == "/acr/policy-bundles/active.tar.gz"
+        )

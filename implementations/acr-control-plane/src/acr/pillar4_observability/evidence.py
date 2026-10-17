@@ -9,8 +9,8 @@ from dataclasses import dataclass
 
 from acr.common.errors import EvidenceBundleNotFoundError
 from acr.common.time import iso_utcnow
-from acr.pillar4_observability.integrity import verify_event_chain
 from acr.config import settings
+from acr.pillar4_observability.integrity import verify_event_chain
 
 
 @dataclass(frozen=True)
@@ -42,11 +42,7 @@ def build_evidence_bundle(*, correlation_id: str, events: list[dict]) -> Evidenc
 
     first = events[0]
     last = events[-1]
-    agent_id = (
-        first.get("agent", {}).get("agent_id")
-        or first.get("agent_id")
-        or "unknown-agent"
-    )
+    agent_id = first.get("agent", {}).get("agent_id") or first.get("agent_id") or "unknown-agent"
     decisions = sorted(
         {
             str(event.get("output", {}).get("decision"))

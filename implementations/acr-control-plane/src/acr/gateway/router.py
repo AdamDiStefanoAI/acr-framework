@@ -14,30 +14,29 @@ Async background tasks (non-blocking):
   [8] Drift metric sample recording
   [9] Drift score computation + graduated response check
 """
+
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import structlog
 
 from acr.common.correlation import get_correlation_id
 from acr.common.errors import (
     ACRError,
     AgentKilledError,
     AgentNotRegisteredError,
-    AuthoritativeSpendControlError,
     PolicyEngineError,
     RuntimeControlDependencyError,
 )
 from acr.common.redis_client import get_redis_or_none
 from acr.common.time import iso_utcnow
 from acr.config import runtime_dependencies_fail_closed, settings
-from acr.db.database import BackgroundSessionLocal, async_session_factory, get_db
+from acr.db.database import BackgroundSessionLocal, get_db
 from acr.db.models import PolicyDecisionRecord
 from acr.gateway.auth import require_agent_token
 from acr.gateway.executor import execute_action
@@ -73,6 +72,7 @@ _DRIFT_CHECK_EVERY_N = 10
 
 
 # ── Background tasks ──────────────────────────────────────────────────────────
+
 
 async def _record_drift_sample(
     agent_id: str,
@@ -161,6 +161,7 @@ async def _persist_policy_decisions(
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 async def _get_rate_count(agent_id: str) -> int:
     """Increment and return the server-side action counter for this agent/minute."""
     redis = get_redis_or_none()
@@ -170,7 +171,7 @@ async def _get_rate_count(agent_id: str) -> int:
                 "Authoritative rate-limit counter unavailable: Redis is not initialized"
             )
         return 0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     minute_bucket = now.strftime("%Y%m%d%H%M")
     key = f"{_RATE_KEY_PREFIX}{agent_id}:{minute_bucket}"
     try:
@@ -189,7 +190,9 @@ def _resolve_action_cost_usd(manifest, tool_name: str) -> float:
     return resolve_action_cost_usd(manifest, tool_name)
 
 
-async def _get_authoritative_projected_spend(agent_id: str, estimated_action_cost_usd: float) -> float:
+async def _get_authoritative_projected_spend(
+    agent_id: str, estimated_action_cost_usd: float
+) -> float:
     return await get_authoritative_projected_spend(agent_id, estimated_action_cost_usd)
 
 
@@ -230,6 +233,7 @@ async def _should_run_drift_check(agent_id: str) -> bool:
 
 
 # ── Main endpoint ─────────────────────────────────────────────────────────────
+
 
 @router.post("/evaluate", response_model=EvaluateResponse)
 async def evaluate(
@@ -288,6 +292,7 @@ async def evaluate(
             restrict_val = await redis.get(f"{_RESTRICT_PREFIX}{req.agent_id}")
             if restrict_val is not None:
                 import json as _json
+
                 allowed_tools = _json.loads(restrict_val)
                 if req.action.tool_name not in allowed_tools:
                     return JSONResponse(
@@ -314,7 +319,7 @@ async def evaluate(
         # ── [2] Identity check ────────────────────────────────────────────────
         with acr_span("identity_check", {"agent.id": req.agent_id}):
             t0 = time.monotonic()
-            agent_record = await validate_agent_identity(db, req.agent_id)
+            await validate_agent_identity(db, req.agent_id)
             manifest = await get_manifest(db, req.agent_id)
             identity_ms = int((time.monotonic() - t0) * 1000)
 
@@ -340,7 +345,9 @@ async def evaluate(
         }
 
         # ── [4] Policy evaluation (OPA) ───────────────────────────────────────
-        with acr_span("policy_evaluation", {"agent.id": req.agent_id, "action.tool": req.action.tool_name}):
+        with acr_span(
+            "policy_evaluation", {"agent.id": req.agent_id, "action.tool": req.action.tool_name}
+        ):
             t0 = time.monotonic()
             policy_result = await evaluate_policy(
                 agent_manifest=manifest.model_dump(),
@@ -353,7 +360,9 @@ async def evaluate(
         effective_action = req.action.model_dump()
         if policy_result.final_decision == "modify":
             if policy_result.modified_action is not None:
-                candidate_tool_name = policy_result.modified_action.get("tool_name", req.action.tool_name)
+                candidate_tool_name = policy_result.modified_action.get(
+                    "tool_name", req.action.tool_name
+                )
                 if candidate_tool_name != req.action.tool_name:
                     return JSONResponse(
                         status_code=403,
@@ -391,7 +400,9 @@ async def evaluate(
                 )
             )
         elif response_decision == "modify" and not response_reason:
-            response_reason = _filter_reason(filter_result) or "Action transformed by runtime policy"
+            response_reason = (
+                _filter_reason(filter_result) or "Action transformed by runtime policy"
+            )
 
         total_ms = int((time.monotonic() - t_start) * 1000)
         end_time = iso_utcnow()
@@ -434,33 +445,35 @@ async def evaluate(
                 policy_denied=False,
                 total_ms=total_ms,
                 correlation_id=correlation_id,
-                event_kwargs=dict(
-                    event_type="ai_inference",
-                    manifest=manifest,
-                    correlation_id=correlation_id,
-                    req=req,
-                    filtered_params=effective_action["parameters"],
-                    start_time=start_time,
-                    end_time=end_time,
-                    total_ms=total_ms,
-                    identity_ms=identity_ms,
-                    policy_ms=policy_ms,
-                    telemetry_policies=telemetry_policies,
-                    output_decision="escalate",
-                    output_reason=response_reason,
-                    approval_request_id=approval.request_id,
-                    drift_score=drift_score,
-                    output_filtered=filter_result.was_modified,
-                    filter_reason=_filter_reason(filter_result),
-                    modified_parameters=effective_action["parameters"] if response_decision == "modify" else None,
-                    tool_name=effective_action["tool_name"],
-                    description=effective_action.get("description"),
-                    custom={
+                event_kwargs={
+                    "event_type": "ai_inference",
+                    "manifest": manifest,
+                    "correlation_id": correlation_id,
+                    "req": req,
+                    "filtered_params": effective_action["parameters"],
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "total_ms": total_ms,
+                    "identity_ms": identity_ms,
+                    "policy_ms": policy_ms,
+                    "telemetry_policies": telemetry_policies,
+                    "output_decision": "escalate",
+                    "output_reason": response_reason,
+                    "approval_request_id": approval.request_id,
+                    "drift_score": drift_score,
+                    "output_filtered": filter_result.was_modified,
+                    "filter_reason": _filter_reason(filter_result),
+                    "modified_parameters": effective_action["parameters"]
+                    if response_decision == "modify"
+                    else None,
+                    "tool_name": effective_action["tool_name"],
+                    "description": effective_action.get("description"),
+                    "custom": {
                         "estimated_cost_usd": estimated_action_cost_usd,
                         "authoritative_hourly_spend_usd": projected_hourly_spend_usd,
                         "cost_basis": "authorization_estimate",
                     },
-                ),
+                },
             )
             background_tasks.add_task(
                 _persist_policy_decisions,
@@ -490,33 +503,35 @@ async def evaluate(
                 policy_denied=True,
                 total_ms=total_ms,
                 correlation_id=correlation_id,
-                event_kwargs=dict(
-                    event_type="policy_decision",
-                    manifest=manifest,
-                    correlation_id=correlation_id,
-                    req=req,
-                    filtered_params=effective_action["parameters"],
-                    start_time=start_time,
-                    end_time=end_time,
-                    total_ms=total_ms,
-                    identity_ms=identity_ms,
-                    policy_ms=policy_ms,
-                    telemetry_policies=telemetry_policies,
-                    output_decision="deny",
-                    output_reason=response_reason,
-                    approval_request_id=None,
-                    drift_score=drift_score,
-                    output_filtered=filter_result.was_modified,
-                    filter_reason=_filter_reason(filter_result),
-                    modified_parameters=effective_action["parameters"] if response_decision == "modify" else None,
-                    tool_name=effective_action["tool_name"],
-                    description=effective_action.get("description"),
-                    custom={
+                event_kwargs={
+                    "event_type": "policy_decision",
+                    "manifest": manifest,
+                    "correlation_id": correlation_id,
+                    "req": req,
+                    "filtered_params": effective_action["parameters"],
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "total_ms": total_ms,
+                    "identity_ms": identity_ms,
+                    "policy_ms": policy_ms,
+                    "telemetry_policies": telemetry_policies,
+                    "output_decision": "deny",
+                    "output_reason": response_reason,
+                    "approval_request_id": None,
+                    "drift_score": drift_score,
+                    "output_filtered": filter_result.was_modified,
+                    "filter_reason": _filter_reason(filter_result),
+                    "modified_parameters": effective_action["parameters"]
+                    if response_decision == "modify"
+                    else None,
+                    "tool_name": effective_action["tool_name"],
+                    "description": effective_action.get("description"),
+                    "custom": {
                         "estimated_cost_usd": estimated_action_cost_usd,
                         "authoritative_hourly_spend_usd": projected_hourly_spend_usd,
                         "cost_basis": "authorization_estimate",
                     },
-                ),
+                },
             )
             background_tasks.add_task(
                 _persist_policy_decisions,
@@ -562,33 +577,35 @@ async def evaluate(
             policy_denied=False,
             total_ms=total_ms,
             correlation_id=correlation_id,
-            event_kwargs=dict(
-                event_type="ai_inference",
-                manifest=manifest,
-                correlation_id=correlation_id,
-                req=req,
-                filtered_params=effective_action["parameters"],
-                start_time=start_time,
-                end_time=end_time,
-                total_ms=total_ms,
-                identity_ms=identity_ms,
-                policy_ms=policy_ms,
-                telemetry_policies=telemetry_policies,
-                output_decision=response_decision,
-                output_reason=response_reason,
-                approval_request_id=None,
-                drift_score=drift_score,
-                output_filtered=filter_result.was_modified,
-                filter_reason=_filter_reason(filter_result),
-                modified_parameters=effective_action["parameters"] if response_decision == "modify" else None,
-                tool_name=effective_action["tool_name"],
-                description=effective_action.get("description"),
-                custom={
+            event_kwargs={
+                "event_type": "ai_inference",
+                "manifest": manifest,
+                "correlation_id": correlation_id,
+                "req": req,
+                "filtered_params": effective_action["parameters"],
+                "start_time": start_time,
+                "end_time": end_time,
+                "total_ms": total_ms,
+                "identity_ms": identity_ms,
+                "policy_ms": policy_ms,
+                "telemetry_policies": telemetry_policies,
+                "output_decision": response_decision,
+                "output_reason": response_reason,
+                "approval_request_id": None,
+                "drift_score": drift_score,
+                "output_filtered": filter_result.was_modified,
+                "filter_reason": _filter_reason(filter_result),
+                "modified_parameters": effective_action["parameters"]
+                if response_decision == "modify"
+                else None,
+                "tool_name": effective_action["tool_name"],
+                "description": effective_action.get("description"),
+                "custom": {
                     "estimated_cost_usd": estimated_action_cost_usd,
                     "authoritative_hourly_spend_usd": projected_hourly_spend_usd,
                     "cost_basis": "authorization_estimate",
                 },
-            ),
+            },
         )
         background_tasks.add_task(
             _persist_policy_decisions,
@@ -622,33 +639,56 @@ async def evaluate(
         return JSONResponse(status_code=200, content=content)
 
     except AgentKilledError as exc:
-        return JSONResponse(status_code=403, content={"decision": "deny", "reason": exc.message, "error_code": exc.error_code})
+        return JSONResponse(
+            status_code=403,
+            content={"decision": "deny", "reason": exc.message, "error_code": exc.error_code},
+        )
     except AgentNotRegisteredError as exc:
-        return JSONResponse(status_code=403, content={"decision": "deny", "reason": exc.message, "error_code": exc.error_code})
+        return JSONResponse(
+            status_code=403,
+            content={"decision": "deny", "reason": exc.message, "error_code": exc.error_code},
+        )
     except PolicyEngineError as exc:
         # Fail-secure: OPA down → deny
-        return JSONResponse(status_code=503, content={"decision": "deny", "reason": f"Policy engine unavailable: {exc.message}", "error_code": exc.error_code})
+        return JSONResponse(
+            status_code=503,
+            content={
+                "decision": "deny",
+                "reason": f"Policy engine unavailable: {exc.message}",
+                "error_code": exc.error_code,
+            },
+        )
     except ACRError as exc:
-        return JSONResponse(status_code=exc.status_code, content={"decision": "deny", "reason": exc.message, "error_code": exc.error_code})
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"decision": "deny", "reason": exc.message, "error_code": exc.error_code},
+        )
     except Exception:
         # Fail-secure: never expose stack traces to clients
-        return JSONResponse(status_code=500, content={"decision": "deny", "reason": "Internal control plane error", "error_code": "INTERNAL_ERROR"})
+        return JSONResponse(
+            status_code=500,
+            content={
+                "decision": "deny",
+                "reason": "Internal control plane error",
+                "error_code": "INTERNAL_ERROR",
+            },
+        )
 
 
 # ── OTEL metrics helper ──────────────────────────────────────────────────────
 
+
 def _record_evaluate_metrics(agent_id: str, decision: str, latency_ms: int) -> None:
     """Increment OTLP counters/histograms for each evaluate call."""
     meter = get_meter()
-    meter.create_counter("acr.evaluate.total").add(
-        1, {"agent_id": agent_id, "decision": decision}
-    )
+    meter.create_counter("acr.evaluate.total").add(1, {"agent_id": agent_id, "decision": decision})
     meter.create_histogram("acr.evaluate.latency", unit="ms").record(
         latency_ms, {"agent_id": agent_id}
     )
 
 
 # ── Background task helpers ───────────────────────────────────────────────────
+
 
 def _queue_background_tasks(
     background_tasks: BackgroundTasks,
@@ -721,7 +761,9 @@ async def _emit_telemetry_event(
         start_time=start_time,
         end_time=end_time,
         duration_ms=total_ms,
-        latency_breakdown=LatencyBreakdown(identity_ms=identity_ms, policy_ms=policy_ms, total_ms=total_ms),
+        latency_breakdown=LatencyBreakdown(
+            identity_ms=identity_ms, policy_ms=policy_ms, total_ms=total_ms
+        ),
         policies=telemetry_policies,
         output_decision=output_decision,
         output_reason=output_reason,

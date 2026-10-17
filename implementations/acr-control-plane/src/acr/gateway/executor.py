@@ -1,4 +1,5 @@
 """Controlled downstream execution for approved ACR actions with circuit breaker."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -118,8 +119,8 @@ async def execute_action(
             correlation_id=correlation_id,
             approval_request_id=approval_request_id,
         )
-    except CircuitBreakerError:
+    except CircuitBreakerError as exc:
         logger.warning("executor_circuit_open", tool_name=tool_name)
         raise DownstreamExecutionError(
             f"Executor circuit breaker open for tool '{tool_name}' — too many recent failures"
-        )
+        ) from exc

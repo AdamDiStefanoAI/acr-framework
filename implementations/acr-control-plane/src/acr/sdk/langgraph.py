@@ -1,9 +1,11 @@
 """LangGraph/LangChain-style tool guards built on top of the ACR SDK."""
+
 from __future__ import annotations
 
 import inspect
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from acr.gateway.models import EvaluateResponse, IntentRequest
 from acr.sdk.client import ACRAgentSession, AsyncACRAgentSession
@@ -139,7 +141,9 @@ def build_langchain_tool(
         ) from exc
 
     resolved_name = name or func.__name__
-    resolved_description = description or inspect.getdoc(func) or f"Guarded ACR tool: {resolved_name}"
+    resolved_description = (
+        description or inspect.getdoc(func) or f"Guarded ACR tool: {resolved_name}"
+    )
 
     if isinstance(session, AsyncACRAgentSession):
         coroutine = guard_async_tool(

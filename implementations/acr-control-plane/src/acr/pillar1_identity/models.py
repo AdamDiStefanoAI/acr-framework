@@ -1,4 +1,5 @@
 """Pillar 1: Identity & Purpose Binding — Pydantic models."""
+
 from __future__ import annotations
 
 from datetime import datetime

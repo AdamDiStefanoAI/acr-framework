@@ -6,14 +6,14 @@ It must NOT run inside the gateway process.
 
 State is stored in Redis for sub-millisecond reads.
 """
+
 from __future__ import annotations
 
 import json
 import os
 import secrets
-from datetime import timezone
-from datetime import datetime
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Header, HTTPException, status
@@ -55,8 +55,12 @@ def _redis_client() -> aioredis.Redis:
 
 
 def _require_secret(x_killswitch_secret: str | None) -> None:
-    if not x_killswitch_secret or not secrets.compare_digest(x_killswitch_secret, KILLSWITCH_SECRET):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid kill switch secret")
+    if not x_killswitch_secret or not secrets.compare_digest(
+        x_killswitch_secret, KILLSWITCH_SECRET
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid kill switch secret"
+        )
 
 
 def _require_operator(
@@ -83,6 +87,7 @@ def _require_operator(
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
+
 class KillRequest(BaseModel):
     agent_id: str
     reason: str
@@ -105,13 +110,14 @@ class KillState(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
+
 @app.get("/health")
 async def health() -> dict:
     try:
         await _redis_client().ping()
         return {"status": "healthy", "redis": "ok"}
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Redis unhealthy: {exc}")
+        raise HTTPException(status_code=503, detail=f"Redis unhealthy: {exc}") from exc
 
 
 @app.get("/ready")
@@ -127,16 +133,21 @@ async def kill_agent(
 ) -> KillState:
     """Activate kill switch for an agent. Writes state to Redis."""
     _require_secret(x_killswitch_secret)
-    operator_subject = _require_operator(x_operator_api_key, "security_admin", "killswitch_operator")
+    operator_subject = _require_operator(
+        x_operator_api_key, "security_admin", "killswitch_operator"
+    )
     r = _redis_client()
     key = f"{KILL_KEY_PREFIX}{req.agent_id}"
-    killed_at = datetime.now(timezone.utc).isoformat()
-    await r.hset(key, mapping={  # type: ignore[misc]
-        "is_killed": "1",
-        "reason": req.reason,
-        "killed_at": killed_at,
-        "killed_by": req.operator_id or operator_subject,
-    })
+    killed_at = datetime.now(UTC).isoformat()
+    await r.hset(
+        key,
+        mapping={  # type: ignore[misc]
+            "is_killed": "1",
+            "reason": req.reason,
+            "killed_at": killed_at,
+            "killed_by": req.operator_id or operator_subject,
+        },
+    )
     return KillState(
         agent_id=req.agent_id,
         is_killed=True,
@@ -198,11 +209,13 @@ async def list_status(
     for key in keys:
         data = await r.hgetall(key)
         agent_id = key.removeprefix(KILL_KEY_PREFIX)
-        result.append(KillState(
-            agent_id=agent_id,
-            is_killed=data.get("is_killed") == "1",
-            reason=data.get("reason"),
-            killed_at=data.get("killed_at"),
-            killed_by=data.get("killed_by"),
-        ))
+        result.append(
+            KillState(
+                agent_id=agent_id,
+                is_killed=data.get("is_killed") == "1",
+                reason=data.get("reason"),
+                killed_at=data.get("killed_at"),
+                killed_by=data.get("killed_by"),
+            )
+        )
     return result

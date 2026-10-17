@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hmac
 import io
-import json
 import zipfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -52,7 +51,10 @@ class TestModifyDecision:
         with patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=client):
             result = await evaluate_policy(
                 {"agent_id": "agent-1", "allowed_tools": ["query_customer_db"]},
-                {"tool_name": "query_customer_db", "parameters": {"customer_id": "C-001", "note": "secret"}},
+                {
+                    "tool_name": "query_customer_db",
+                    "parameters": {"customer_id": "C-001", "note": "secret"},
+                },
                 {},
             )
 
@@ -67,13 +69,19 @@ class TestModifyDecision:
     ) -> None:
         modify_result = PolicyEvaluationResult(
             final_decision="modify",
-            decisions=[PolicyDecision(policy_id="acr-modify", decision="modify", reason="Transform before release")],
+            decisions=[
+                PolicyDecision(
+                    policy_id="acr-modify", decision="modify", reason="Transform before release"
+                )
+            ],
             reason="Transform before release",
             modified_parameters={"customer_id": "C-001", "note": "[REDACTED]"},
             latency_ms=7,
         )
 
-        with patch("acr.gateway.router.evaluate_policy", new_callable=AsyncMock, return_value=modify_result):
+        with patch(
+            "acr.gateway.router.evaluate_policy", new_callable=AsyncMock, return_value=modify_result
+        ):
             response = await async_client.post(
                 "/acr/evaluate",
                 json={
@@ -99,18 +107,27 @@ class TestModifyDecision:
     ) -> None:
         modify_result = PolicyEvaluationResult(
             final_decision="modify",
-            decisions=[PolicyDecision(policy_id="acr-modify", decision="modify", reason="Transform before release")],
+            decisions=[
+                PolicyDecision(
+                    policy_id="acr-modify", decision="modify", reason="Transform before release"
+                )
+            ],
             reason="Transform before release",
             modified_action={"tool_name": "send_email", "parameters": {}},
             latency_ms=5,
         )
 
-        with patch("acr.gateway.router.evaluate_policy", new_callable=AsyncMock, return_value=modify_result):
+        with patch(
+            "acr.gateway.router.evaluate_policy", new_callable=AsyncMock, return_value=modify_result
+        ):
             response = await async_client.post(
                 "/acr/evaluate",
                 json={
                     "agent_id": sample_agent.agent_id,
-                    "action": {"tool_name": "query_customer_db", "parameters": {"customer_id": "C-001"}},
+                    "action": {
+                        "tool_name": "query_customer_db",
+                        "parameters": {"customer_id": "C-001"},
+                    },
                     "context": {},
                 },
             )
@@ -192,7 +209,9 @@ class TestSpendControls:
         assert resolve_action_cost_usd(manifest, "send_email") == 0.02
         assert resolve_action_cost_usd(manifest, "query_customer_db") == 0.10
 
-    def test_resolve_action_cost_requires_authoritative_config_in_production(self, monkeypatch) -> None:
+    def test_resolve_action_cost_requires_authoritative_config_in_production(
+        self, monkeypatch
+    ) -> None:
         monkeypatch.setattr(settings, "acr_env", "production")
         with pytest.raises(AuthoritativeSpendControlError):
             resolve_action_cost_usd({"boundaries": {}}, "send_email")
@@ -215,7 +234,9 @@ class TestSpendControls:
         await db.commit()
 
         with (
-            patch("acr.pillar6_authority.approval.adjust_authoritative_spend", new_callable=AsyncMock) as adjust_spend,
+            patch(
+                "acr.pillar6_authority.approval.adjust_authoritative_spend", new_callable=AsyncMock
+            ) as adjust_spend,
             patch(
                 "acr.pillar6_authority.approval.execute_action",
                 new_callable=AsyncMock,

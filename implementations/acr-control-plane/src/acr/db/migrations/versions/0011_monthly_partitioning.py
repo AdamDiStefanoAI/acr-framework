@@ -4,12 +4,13 @@ Revision ID: 0011
 Revises: 0010
 Create Date: 2026-04-07
 """
+
 from __future__ import annotations
 
 from datetime import date
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "0011"
 down_revision = "0010"
@@ -29,10 +30,13 @@ def _add_months(value: date, months: int) -> date:
 
 
 def _partition_bounds(conn, table: str) -> tuple[date, date]:
+    # Table names are identifiers, not bind parameters. Let SQLAlchemy quote
+    # them instead of interpolating them into textual SQL.
+    source = sa.table(table, sa.column("created_at", sa.DateTime(timezone=True)))
     result = conn.execute(
-        sa.text(
-            f"SELECT MIN(created_at)::date AS min_created, "
-            f"MAX(created_at)::date AS max_created FROM {table}"
+        sa.select(
+            sa.cast(sa.func.min(source.c.created_at), sa.Date).label("min_created"),
+            sa.cast(sa.func.max(source.c.created_at), sa.Date).label("max_created"),
         )
     )
     row = result.fetchone()
@@ -139,9 +143,7 @@ def downgrade() -> None:
             continue
 
         tmp = f"{table}_flat"
-        op.execute(
-            f"CREATE TABLE {tmp} (LIKE {table} INCLUDING ALL)"
-        )
+        op.execute(f"CREATE TABLE {tmp} (LIKE {table} INCLUDING ALL)")
         op.execute(f"INSERT INTO {tmp} SELECT * FROM {table}")
         op.execute(f"DROP TABLE {table} CASCADE")
         op.execute(f"ALTER TABLE {tmp} RENAME TO {table}")

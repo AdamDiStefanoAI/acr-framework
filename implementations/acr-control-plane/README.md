@@ -116,9 +116,13 @@ For workflow builders and orchestration tools, there is now an explicit [orchest
 
 ### 1. Start the stack
 
+Run from `implementations/acr-control-plane/` in a Git checkout. Docker Compose v2 is required. The following credentials are for an isolated local demo only.
+
 ```bash
 cp .env.example .env
-docker-compose up --build
+export OPERATOR_API_KEYS_JSON='{"dev-operator-key":{"subject":"dev-operator","roles":["agent_admin","approver","security_admin","auditor","killswitch_operator"]}}'
+export SERVICE_OPERATOR_API_KEY=dev-operator-key
+docker compose up --build
 ```
 
 Services:
@@ -163,11 +167,17 @@ Inside the console you can:
 
 ### 4. Run the sample agent
 
+In a second terminal, change to `implementations/acr-control-plane/`. Use Python 3.11 or 3.12 and install the package so the sample can import `acr.sdk`:
+
 ```bash
-pip install httpx
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
 export ACR_OPERATOR_API_KEY=dev-operator-key
 python examples/sample_agent/agent.py
 ```
+
+See the [sample agent README](examples/sample_agent/README.md) for the full setup and Windows activation command.
 
 The sample flow demonstrates:
 1. agent registration
@@ -254,6 +264,8 @@ Background tasks handle telemetry persistence, drift work, and approval lifecycl
 
 ## Local Development
 
+Follow the repository [coding contribution guide](../../CONTRIBUTING.md#code-contributions) for the supported setup, unit/integration test separation, and PR checklist. Commands below run from this implementation directory.
+
 ### Install
 
 ```bash
@@ -271,7 +283,7 @@ Use `.env.production.example` as the non-dev template and store the generated va
 ### Run tests
 
 ```bash
-pytest tests/ -v --cov=src/acr --cov-report=term-missing
+ACR_ENV=test python -m pytest tests/ --ignore=tests/integration -v --cov=src/acr --cov-report=term-missing
 ```
 
 ### Run without the full Docker stack

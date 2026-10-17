@@ -10,10 +10,10 @@ Changes:
   - approval_requests.decision: CHECK IS NULL OR IN ('approved', 'denied', 'overridden')
   - containment_actions.action_type: CHECK IN ('kill', 'restore', 'throttle', 'restrict', 'isolate')
 """
+
 from __future__ import annotations
 
 from alembic import op
-
 
 revision = "0003"
 down_revision = "0002"
@@ -52,15 +52,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "ck_containment_actions_action_type", "containment_actions", type_="check"
-    )
-    op.drop_constraint(
-        "ck_approval_requests_decision", "approval_requests", type_="check"
-    )
-    op.drop_constraint(
-        "ck_approval_requests_status", "approval_requests", type_="check"
-    )
-    op.drop_constraint(
-        "ck_policy_decisions_decision", "policy_decisions", type_="check"
-    )
+    op.drop_constraint("ck_containment_actions_action_type", "containment_actions", type_="check")
+    op.drop_constraint("ck_approval_requests_decision", "approval_requests", type_="check")
+    op.drop_constraint("ck_approval_requests_status", "approval_requests", type_="check")
+    op.drop_constraint("ck_policy_decisions_decision", "policy_decisions", type_="check")

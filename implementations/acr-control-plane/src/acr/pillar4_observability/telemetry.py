@@ -1,4 +1,5 @@
 """Pillar 4: Structured JSON telemetry event generation and persistence."""
+
 from __future__ import annotations
 
 import structlog
@@ -14,8 +15,8 @@ from acr.pillar4_observability.integrity import (
     sign_payload_hash,
 )
 from acr.pillar4_observability.schema import (
-    ACRTelemetryEvent,
     AcrControlPlaneMetadata,
+    ACRTelemetryEvent,
     AgentTelemetryObject,
     EventType,
     ExecutionObject,

@@ -1,12 +1,10 @@
 """Pillar 4 unit tests: telemetry schema and event building."""
+
 from __future__ import annotations
 
-import pytest
-
 from acr.config import settings
-from acr.pillar4_observability.schema import ACRTelemetryEvent
-from acr.pillar4_observability.telemetry import build_event
 from acr.pillar4_observability.schema import LatencyBreakdown
+from acr.pillar4_observability.telemetry import build_event
 
 
 class TestTelemetrySchema:
@@ -42,6 +40,7 @@ class TestTelemetrySchema:
 
     def test_event_has_uuid_event_id(self) -> None:
         import uuid
+
         event = build_event(
             event_type="policy_decision",
             agent_id="agent-x",

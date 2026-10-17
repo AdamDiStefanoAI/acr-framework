@@ -13,9 +13,7 @@ from acr.operator_keys.service import create_operator_key
 
 
 class TestOperatorKeyAPI:
-    async def test_create_and_list_operator_keys(
-        self, async_client: AsyncClient
-    ) -> None:
+    async def test_create_and_list_operator_keys(self, async_client: AsyncClient) -> None:
         create_resp = await async_client.post(
             "/acr/operator-keys",
             json={
@@ -55,9 +53,7 @@ class TestOperatorKeyAPI:
 
 
 class TestDatabaseOperatorAuth:
-    async def test_database_operator_key_authenticates(
-        self, db: AsyncSession
-    ) -> None:
+    async def test_database_operator_key_authenticates(self, db: AsyncSession) -> None:
         record, api_key = await create_operator_key(
             db,
             req=OperatorKeyCreateRequest(
@@ -115,7 +111,9 @@ class TestOIDCAuthAPI:
         assert response.headers["location"].startswith("https://issuer.example.com/authorize")
         assert "acr_oidc_state=" in response.headers["set-cookie"]
 
-    async def test_oidc_callback_sets_session_cookie(self, async_client: AsyncClient, monkeypatch) -> None:
+    async def test_oidc_callback_sets_session_cookie(
+        self, async_client: AsyncClient, monkeypatch
+    ) -> None:
         monkeypatch.setattr(settings, "oidc_enabled", True)
         monkeypatch.setattr(settings, "oidc_client_id", "client-123")
         monkeypatch.setattr(settings, "oidc_redirect_uri", "http://test/acr/auth/oidc/callback")
@@ -144,8 +142,7 @@ class TestOIDCAuthAPI:
             ),
         ):
             callback_response = await async_client.get(
-                "/acr/auth/oidc/callback?code=test-code&state="
-                + state_payload["state"],
+                "/acr/auth/oidc/callback?code=test-code&state=" + state_payload["state"],
                 cookies={"acr_oidc_state": state_cookie},
                 follow_redirects=False,
             )

@@ -4,9 +4,10 @@ The registry stores agent identity, manifest, lineage, capabilities, lifecycle
 state and health. It is the authoritative source for the gateway's identity
 checks and the discovery API.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
@@ -94,9 +95,7 @@ async def register_agent(db: AsyncSession, req: AgentRegisterRequest) -> AgentRe
         await db.flush()
     except IntegrityError as exc:
         await db.rollback()
-        raise AgentAlreadyExistsError(
-            f"Agent '{req.agent_id}' is already registered"
-        ) from exc
+        raise AgentAlreadyExistsError(f"Agent '{req.agent_id}' is already registered") from exc
     await db.refresh(record)
     return record
 
@@ -170,8 +169,7 @@ async def transition_lifecycle(
     allowed = LIFECYCLE_TRANSITIONS.get(current, frozenset())
     if target_state not in allowed:
         raise AgentLifecycleError(
-            f"Illegal lifecycle transition for agent '{agent_id}': "
-            f"{current} → {target_state}"
+            f"Illegal lifecycle transition for agent '{agent_id}': {current} → {target_state}"
         )
     record.lifecycle_state = target_state
     record.is_active = target_state != "retired"
@@ -194,9 +192,7 @@ async def record_heartbeat(
     """
     record = await get_agent(db, agent_id)
     if record.lifecycle_state == "retired":
-        raise AgentLifecycleError(
-            f"Heartbeat received from retired agent '{agent_id}'"
-        )
+        raise AgentLifecycleError(f"Heartbeat received from retired agent '{agent_id}'")
     record.last_heartbeat_at = utcnow()
     record.health_status = health_status
     await db.flush()
@@ -299,7 +295,7 @@ async def sweep_stale_heartbeats(
 
     Returns the number of agents downgraded.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(seconds=threshold_seconds)
+    cutoff = datetime.now(UTC) - timedelta(seconds=threshold_seconds)
     result = await db.execute(
         select(AgentRecord).where(
             AgentRecord.lifecycle_state.in_(("active", "deprecated")),

@@ -6,7 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from acr.common.errors import PolicyDraftNotFoundError, PolicyReleaseNotFoundError, PolicyValidationError, UnauthorizedOperatorError
+from acr.common.errors import (
+    PolicyDraftNotFoundError,
+    PolicyReleaseNotFoundError,
+    PolicyValidationError,
+    UnauthorizedOperatorError,
+)
 from acr.common.oidc import (
     _JWKS_CACHE,
     _extract_claim_values,
@@ -33,7 +38,12 @@ from acr.policy_studio.releases import (
     rollback_policy_release,
     validate_policy_draft_record,
 )
-from acr.policy_studio.service import create_policy_draft, get_policy_draft, list_policy_drafts, update_policy_draft
+from acr.policy_studio.service import (
+    create_policy_draft,
+    get_policy_draft,
+    list_policy_drafts,
+    update_policy_draft,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -57,9 +67,13 @@ class TestOIDCHelpers:
 
     def test_map_oidc_roles_uses_mapping_or_falls_back(self, monkeypatch) -> None:
         monkeypatch.setattr(settings, "oidc_roles_claim", "groups")
-        monkeypatch.setattr(settings, "oidc_role_mapping_json", '{"grp-admin":["security_admin","auditor"]}')
+        monkeypatch.setattr(
+            settings, "oidc_role_mapping_json", '{"grp-admin":["security_admin","auditor"]}'
+        )
         oidc_role_mapping.cache_clear()
-        assert _map_oidc_roles({"groups": ["grp-admin"]}) == frozenset({"security_admin", "auditor"})
+        assert _map_oidc_roles({"groups": ["grp-admin"]}) == frozenset(
+            {"security_admin", "auditor"}
+        )
 
         monkeypatch.setattr(settings, "oidc_role_mapping_json", "")
         oidc_role_mapping.cache_clear()
@@ -125,11 +139,20 @@ class TestOIDCHelpers:
         oidc_role_mapping.cache_clear()
 
         with (
-            patch("acr.common.oidc._fetch_jwks", new_callable=AsyncMock, return_value={"keys": [{"kid": "kid-1"}]}),
+            patch(
+                "acr.common.oidc._fetch_jwks",
+                new_callable=AsyncMock,
+                return_value={"keys": [{"kid": "kid-1"}]},
+            ),
             patch("acr.common.oidc.jwt.get_unverified_header", return_value={"kid": "kid-1"}),
+            patch("acr.common.oidc.jwt.PyJWK.from_dict"),
             patch(
                 "acr.common.oidc.jwt.decode",
-                return_value={"email": "alice@example.com", "groups": ["grp-admin"], "nonce": "n-123"},
+                return_value={
+                    "email": "alice@example.com",
+                    "groups": ["grp-admin"],
+                    "nonce": "n-123",
+                },
             ),
         ):
             principal = await validate_oidc_token("token-123", nonce="n-123")
@@ -147,8 +170,13 @@ class TestOIDCHelpers:
             await validate_oidc_token("token-123")
 
         with (
-            patch("acr.common.oidc._fetch_jwks", new_callable=AsyncMock, return_value={"keys": [{"kid": "kid-1"}]}),
+            patch(
+                "acr.common.oidc._fetch_jwks",
+                new_callable=AsyncMock,
+                return_value={"keys": [{"kid": "kid-1"}]},
+            ),
             patch("acr.common.oidc.jwt.get_unverified_header", return_value={"kid": "kid-1"}),
+            patch("acr.common.oidc.jwt.PyJWK.from_dict"),
             patch("acr.common.oidc.jwt.decode", return_value={"sub": "alice", "nonce": "bad"}),
             pytest.raises(UnauthorizedOperatorError, match="nonce validation failed"),
         ):
@@ -202,7 +230,11 @@ class TestPolicyDraftServices:
             name="Draft One",
             agent_id="agent-1",
             template="customer_support",
-            manifest={"agent_id": "agent-1", "purpose": "Help customers", "allowed_tools": ["query_customer_db"]},
+            manifest={
+                "agent_id": "agent-1",
+                "purpose": "Help customers",
+                "allowed_tools": ["query_customer_db"],
+            },
             rego_policy="package acr\nallow if true",
             wizard_inputs={"template": "customer_support"},
         )
@@ -227,7 +259,9 @@ class TestPolicyDraftServices:
 
 
 class TestPolicyReleaseServices:
-    async def test_validate_policy_draft_record_catches_issues_and_warnings(self, db: AsyncSession) -> None:
+    async def test_validate_policy_draft_record_catches_issues_and_warnings(
+        self, db: AsyncSession
+    ) -> None:
         draft = await create_policy_draft(
             db,
             req=PolicyDraftUpsertRequest(
@@ -250,25 +284,42 @@ class TestPolicyReleaseServices:
             name="Good Draft",
             agent_id="agent-3",
             template="customer_support",
-            manifest={"agent_id": "agent-3", "purpose": "Help customers", "allowed_tools": ["query_customer_db"]},
+            manifest={
+                "agent_id": "agent-3",
+                "purpose": "Help customers",
+                "allowed_tools": ["query_customer_db"],
+            },
             rego_policy="package acr\nallow if true",
             wizard_inputs={"template": "customer_support"},
         )
         draft = await create_policy_draft(db, req=req, actor="alice")
 
-        published_artifact = SimpleNamespace(uri="s3://bundle-1.tar.gz", sha256="abc123", backend="s3")
+        published_artifact = SimpleNamespace(
+            uri="s3://bundle-1.tar.gz", sha256="abc123", backend="s3"
+        )
         active_artifact = SimpleNamespace(uri="s3://active-bundle.tar.gz")
 
         with (
             patch("acr.policy_studio.releases.build_policy_bundle", return_value=b"bundle-bytes"),
-            patch("acr.policy_studio.releases.publish_policy_bundle", return_value=published_artifact),
-            patch("acr.policy_studio.releases.publish_active_policy_bundle", return_value=active_artifact),
+            patch(
+                "acr.policy_studio.releases.publish_policy_bundle", return_value=published_artifact
+            ),
+            patch(
+                "acr.policy_studio.releases.publish_active_policy_bundle",
+                return_value=active_artifact,
+            ),
         ):
-            release = await publish_policy_draft(db, draft=draft, actor="alice", notes="first publish")
+            release = await publish_policy_draft(
+                db, draft=draft, actor="alice", notes="first publish"
+            )
             await db.commit()
-            activated = await activate_policy_release(db, release_id=release.release_id, actor="bob")
+            activated = await activate_policy_release(
+                db, release_id=release.release_id, actor="bob"
+            )
             await db.commit()
-            rolled_back = await rollback_policy_release(db, release_id=release.release_id, actor="carol")
+            rolled_back = await rollback_policy_release(
+                db, release_id=release.release_id, actor="carol"
+            )
 
         releases = await list_policy_releases(db)
         active_releases = await list_active_policy_releases(db)
@@ -278,7 +329,9 @@ class TestPolicyReleaseServices:
         assert any(item.release_id == activated.release_id for item in active_releases)
         assert rolled_back.rollback_from_release_id == release.release_id
 
-    async def test_publish_rejects_invalid_policy_and_release_lookup_not_found(self, db: AsyncSession) -> None:
+    async def test_publish_rejects_invalid_policy_and_release_lookup_not_found(
+        self, db: AsyncSession
+    ) -> None:
         invalid_draft = await create_policy_draft(
             db,
             req=PolicyDraftUpsertRequest(
@@ -298,7 +351,9 @@ class TestPolicyReleaseServices:
         with pytest.raises(PolicyReleaseNotFoundError):
             await get_policy_release(db, "prl-missing")
 
-    async def test_activate_policy_release_deactivates_previous_active_release(self, db: AsyncSession) -> None:
+    async def test_activate_policy_release_deactivates_previous_active_release(
+        self, db: AsyncSession
+    ) -> None:
         previous = PolicyReleaseRecord(
             release_id="prl-old",
             draft_id="pdr-old",
@@ -306,7 +361,11 @@ class TestPolicyReleaseServices:
             version=1,
             name="Old Release",
             template="customer_support",
-            manifest={"agent_id": "agent-5", "purpose": "Help customers", "allowed_tools": ["query_customer_db"]},
+            manifest={
+                "agent_id": "agent-5",
+                "purpose": "Help customers",
+                "allowed_tools": ["query_customer_db"],
+            },
             rego_policy="package acr\nallow if true",
             status="published",
             activation_status="active",
@@ -320,7 +379,11 @@ class TestPolicyReleaseServices:
             version=2,
             name="New Release",
             template="customer_support",
-            manifest={"agent_id": "agent-5", "purpose": "Help customers", "allowed_tools": ["query_customer_db"]},
+            manifest={
+                "agent_id": "agent-5",
+                "purpose": "Help customers",
+                "allowed_tools": ["query_customer_db"],
+            },
             rego_policy="package acr\nallow if true",
             status="published",
             activation_status="inactive",

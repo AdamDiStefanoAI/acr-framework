@@ -3,11 +3,10 @@ from __future__ import annotations
 import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from alembic import context
 
 # Alembic Config object
 config = context.config
@@ -16,14 +15,15 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Import all ORM models so Alembic can detect them
-from acr.db.database import Base  # noqa: E402
 from acr.db import models as _models  # noqa: F401, E402
+from acr.db.database import Base  # noqa: E402
 
 target_metadata = Base.metadata
 
 
 def get_url() -> str:
     from acr.config import settings
+
     return settings.database_url
 
 

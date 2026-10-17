@@ -231,13 +231,12 @@ Yes, if your product implements ACR specifications. Add your product to the [Imp
 
 ### Are there ACR community calls?
 
-Planned for Q2 2026. Join [GitHub Discussions](https://github.com/AdamDiStefanoAI/acr-framework/discussions) for announcements.
+Use [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-framework/issues) to ask about community calls or propose a topic.
 
 ### How do I get support?
 
 ACR is a framework, not a product, so there's no official support. Resources:
-- [GitHub Discussions](https://github.com/AdamDiStefanoAI/acr-framework/discussions) for questions
-- [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-framework/issues) for clarifications
+- [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-framework/issues) for questions and clarifications
 - Community implementations may offer their own support
 
 ---
@@ -264,10 +263,9 @@ Formal certification program may be established if ecosystem demand warrants.
 ### Can I request new features or framework changes?
 
 Yes. Process:
-1. Open [GitHub Discussion](https://github.com/AdamDiStefanoAI/acr-framework/discussions) to propose idea
+1. Open a [GitHub Issue](https://github.com/AdamDiStefanoAI/acr-framework/issues) to propose idea
 2. Community feedback and refinement
-3. If accepted, create GitHub Issue
-4. Submit pull request with specification updates
+3. Once the approach is agreed, submit a pull request with the relevant code, tests, or specification updates
 
 Major architectural changes require RFC (Request for Comments) and extended community review.
 
@@ -311,4 +309,4 @@ Compliance-focused resources:
 
 ---
 
-Still have questions? Ask in [GitHub Discussions](https://github.com/AdamDiStefanoAI/acr-framework/discussions).
+Still have questions? Ask in [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-framework/issues).

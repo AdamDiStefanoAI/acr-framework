@@ -1,4 +1,5 @@
 """Pillar 2: OPA policy engine client with circuit breaker."""
+
 from __future__ import annotations
 
 import asyncio
@@ -81,7 +82,7 @@ async def _call_opa(opa_input: dict) -> dict:
         except (httpx.RequestError, httpx.HTTPStatusError) as exc:
             last_exc = exc
             if attempt < _MAX_RETRIES - 1:
-                delay = _RETRY_BASE_DELAY * (2 ** attempt)
+                delay = _RETRY_BASE_DELAY * (2**attempt)
                 logger.warning(
                     "opa_retry",
                     attempt=attempt + 1,
@@ -132,12 +133,14 @@ async def evaluate_policy(
         elapsed_ms = int((time.monotonic() - start_ms) * 1000)
         return PolicyEvaluationResult(
             final_decision="deny",
-            decisions=[PolicyDecision(
-                policy_id="acr-circuit-open",
-                decision="deny",
-                reason="OPA circuit breaker open — failing secure",
-                latency_ms=elapsed_ms,
-            )],
+            decisions=[
+                PolicyDecision(
+                    policy_id="acr-circuit-open",
+                    decision="deny",
+                    reason="OPA circuit breaker open — failing secure",
+                    latency_ms=elapsed_ms,
+                )
+            ],
             reason="OPA circuit breaker open — failing secure",
             latency_ms=elapsed_ms,
         )
@@ -164,59 +167,71 @@ async def evaluate_policy(
         final = "deny"
         reason = "; ".join(deny_reasons)
         for i, r in enumerate(deny_reasons):
-            decisions.append(PolicyDecision(
-                policy_id=f"acr-deny-{i}",
-                decision="deny",
-                reason=r,
-                latency_ms=elapsed_ms,
-            ))
+            decisions.append(
+                PolicyDecision(
+                    policy_id=f"acr-deny-{i}",
+                    decision="deny",
+                    reason=r,
+                    latency_ms=elapsed_ms,
+                )
+            )
     elif escalate:
         final = "escalate"
         reason = f"Action requires human approval (queue: {escalate_queue})"
-        decisions.append(PolicyDecision(
-            policy_id="acr-escalate",
-            decision="escalate",
-            reason=reason,
-            latency_ms=elapsed_ms,
-        ))
+        decisions.append(
+            PolicyDecision(
+                policy_id="acr-escalate",
+                decision="escalate",
+                reason=reason,
+                latency_ms=elapsed_ms,
+            )
+        )
     elif modify:
         modified_payload = modified_action or modified_parameters
         if modified_payload is None:
             final = "deny"
             reason = "Policy requested modify without supplying a transformed payload"
-            decisions.append(PolicyDecision(
-                policy_id="acr-invalid-modify",
-                decision="deny",
-                reason=reason,
-                latency_ms=elapsed_ms,
-            ))
+            decisions.append(
+                PolicyDecision(
+                    policy_id="acr-invalid-modify",
+                    decision="deny",
+                    reason=reason,
+                    latency_ms=elapsed_ms,
+                )
+            )
         else:
             final = "modify"
             reason = "Action transformed by runtime policy"
-            decisions.append(PolicyDecision(
-                policy_id="acr-modify",
-                decision="modify",
-                reason=reason,
-                latency_ms=elapsed_ms,
-            ))
+            decisions.append(
+                PolicyDecision(
+                    policy_id="acr-modify",
+                    decision="modify",
+                    reason=reason,
+                    latency_ms=elapsed_ms,
+                )
+            )
     elif allow:
         final = "allow"
         reason = None
-        decisions.append(PolicyDecision(
-            policy_id="acr-allow",
-            decision="allow",
-            latency_ms=elapsed_ms,
-        ))
+        decisions.append(
+            PolicyDecision(
+                policy_id="acr-allow",
+                decision="allow",
+                latency_ms=elapsed_ms,
+            )
+        )
     else:
         # OPA returned neither allow=true nor deny=[...] — fail-secure: deny
         final = "deny"
         reason = "Policy did not explicitly allow this action (deny-by-default)"
-        decisions.append(PolicyDecision(
-            policy_id="acr-default-deny",
-            decision="deny",
-            reason=reason,
-            latency_ms=elapsed_ms,
-        ))
+        decisions.append(
+            PolicyDecision(
+                policy_id="acr-default-deny",
+                decision="deny",
+                reason=reason,
+                latency_ms=elapsed_ms,
+            )
+        )
 
     logger.debug(
         "opa_evaluation",

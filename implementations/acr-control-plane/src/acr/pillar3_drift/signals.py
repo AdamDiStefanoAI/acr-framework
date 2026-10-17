@@ -1,7 +1,7 @@
 """Pillar 3: Drift signal definitions — individual behavioral metrics."""
+
 from __future__ import annotations
 
-import math
 from typing import NamedTuple
 
 from acr.pillar3_drift.models import DriftSignal
@@ -11,10 +11,10 @@ MIN_BASELINE_SAMPLES = 30
 
 # Weights for each signal in composite score computation
 SIGNAL_WEIGHTS: dict[str, float] = {
-    "tool_call_frequency": 0.25,   # calls per minute vs baseline
-    "denial_rate": 0.35,           # policy denial % (high weight — key anomaly indicator)
-    "error_rate": 0.20,            # tool execution error %
-    "action_diversity": 0.20,      # entropy of action type distribution
+    "tool_call_frequency": 0.25,  # calls per minute vs baseline
+    "denial_rate": 0.35,  # policy denial % (high weight — key anomaly indicator)
+    "error_rate": 0.20,  # tool execution error %
+    "action_diversity": 0.20,  # entropy of action type distribution
 }
 
 
@@ -22,9 +22,9 @@ class RawMetrics(NamedTuple):
     """Raw behavioral metrics collected over a recent window."""
 
     tool_calls_per_minute: float
-    denial_rate: float          # 0.0–1.0
-    error_rate: float           # 0.0–1.0
-    action_diversity: float     # Shannon entropy of tool distribution, normalized 0.0–1.0
+    denial_rate: float  # 0.0–1.0
+    error_rate: float  # 0.0–1.0
+    action_diversity: float  # Shannon entropy of tool distribution, normalized 0.0–1.0
 
 
 def compute_z_score(current: float, mean: float, std: float) -> float:
@@ -66,15 +66,17 @@ def compute_signals(metrics: RawMetrics, baseline: dict) -> list[DriftSignal]:
         weight = SIGNAL_WEIGHTS.get(name, 1.0)
         z = compute_z_score(current_val, mean, std)
         contribution = z_to_drift_contribution(z) * weight
-        signals.append(DriftSignal(
-            name=name,
-            current_value=current_val,
-            baseline_mean=mean,
-            baseline_std=std,
-            z_score=z,
-            weight=weight,
-            normalized_contribution=contribution,
-        ))
+        signals.append(
+            DriftSignal(
+                name=name,
+                current_value=current_val,
+                baseline_mean=mean,
+                baseline_std=std,
+                z_score=z,
+                weight=weight,
+                normalized_contribution=contribution,
+            )
+        )
 
     return signals
 

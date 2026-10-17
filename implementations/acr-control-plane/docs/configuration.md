@@ -17,6 +17,29 @@ All configuration is via environment variables.
 | `JWT_SECRET_KEY` | `dev_jwt_secret_change_in_production` | **Change in production.** HS256 signing key |
 | `KILLSWITCH_SECRET` | `killswitch_dev_secret_change_me` | **Change in production.** Kill switch API secret |
 
+## JWT dependency upgrade compatibility
+
+JWT signing and verification use `PyJWT[crypto]>=2.15.1,<3.0.0` instead of
+`python-jose`. This removes the unpatched python-jose and transitive ecdsa
+advisories; the development test runner also requires pytest 9.0.3 or later and
+pytest-asyncio 1.3 or later.
+
+The JWT wire format and explicit algorithm restrictions are unchanged: agent
+tokens accept only the configured `HS256`, `RS256`, or `ES256` algorithm; OIDC
+accepts only `RS256` or `ES256`; execution credentials and operator sessions use
+`HS256`. Existing signing secrets and PEM keys remain usable, including a
+configured RSA private key for issuing and verifying agent tokens. No key rotation
+or token reissue is required solely for this library migration.
+
+Signature, expiration, not-before, and configured issuer/audience verification
+remain enabled. PyJWT additionally rejects future `iat` (issued-at) values; keep
+gateway, executor, and identity-provider clocks synchronized. Invalid OIDC tokens
+or malformed signing keys now raise the application's unauthorized-operator
+error, rather than leaking a JWT-library exception. Tokens with `at_hash` remain
+rejected because these authentication paths do not receive the access token
+needed to verify it. Unexpected audience claims, including empty values, remain
+rejected. No verification checks are disabled for compatibility.
+
 ## Optional Variables
 
 | Variable | Default | Description |

@@ -9,9 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from acr.common.errors import ForbiddenOperatorError, UnauthorizedOperatorError
 from acr.common.oidc import decode_signed_payload, oidc_is_enabled, validate_oidc_token
-from acr.db.database import get_db
 from acr.config import operator_api_keys
-from acr.operator_keys.service import find_operator_key_by_hash, hash_operator_key, touch_operator_key_usage
+from acr.db.database import get_db
+from acr.operator_keys.service import (
+    find_operator_key_by_hash,
+    hash_operator_key,
+    touch_operator_key_usage,
+)
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 _operator_api_key_scheme = APIKeyHeader(name="X-Operator-API-Key", auto_error=False)

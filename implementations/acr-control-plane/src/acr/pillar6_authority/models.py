@@ -1,11 +1,11 @@
 """Pillar 6: Human Authority — Pydantic models."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
-
 
 RiskTier = Literal["low", "medium", "high"]
 ApprovalStatus = Literal["pending", "approved", "denied", "overridden", "timed_out"]

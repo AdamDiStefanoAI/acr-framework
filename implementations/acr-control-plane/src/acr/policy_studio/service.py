@@ -12,7 +12,9 @@ from acr.policy_studio.models import PolicyDraftUpsertRequest
 
 async def list_policy_drafts(db: AsyncSession) -> list[PolicyDraftRecord]:
     result = await db.execute(
-        select(PolicyDraftRecord).order_by(PolicyDraftRecord.updated_at.desc(), PolicyDraftRecord.created_at.desc())
+        select(PolicyDraftRecord).order_by(
+            PolicyDraftRecord.updated_at.desc(), PolicyDraftRecord.created_at.desc()
+        )
     )
     return list(result.scalars().all())
 

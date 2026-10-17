@@ -1,4 +1,5 @@
 """Pillar 6: Approval queue logic — create, approve, deny, timeout, override."""
+
 from __future__ import annotations
 
 import hashlib
@@ -125,7 +126,9 @@ async def list_pending_approvals(db: AsyncSession) -> list[ApprovalRequestRecord
     return list(result.scalars().all())
 
 
-async def approve(db: AsyncSession, request_id: str, decided_by: str, reason: str | None) -> ApprovalRequestRecord:
+async def approve(
+    db: AsyncSession, request_id: str, decided_by: str, reason: str | None
+) -> ApprovalRequestRecord:
     result = await db.execute(
         select(ApprovalRequestRecord)
         .where(ApprovalRequestRecord.request_id == request_id)
@@ -135,7 +138,9 @@ async def approve(db: AsyncSession, request_id: str, decided_by: str, reason: st
     if record is None:
         raise ApprovalNotFoundError(f"Approval request '{request_id}' not found")
     if record.status != "pending":
-        raise ApprovalConflictError(f"Approval request {request_id} is already in status '{record.status}'")
+        raise ApprovalConflictError(
+            f"Approval request {request_id} is already in status '{record.status}'"
+        )
     record.status = "approved"
     record.decision = "approved"
     record.decided_by = decided_by
@@ -146,7 +151,9 @@ async def approve(db: AsyncSession, request_id: str, decided_by: str, reason: st
     return record
 
 
-async def deny(db: AsyncSession, request_id: str, decided_by: str, reason: str | None) -> ApprovalRequestRecord:
+async def deny(
+    db: AsyncSession, request_id: str, decided_by: str, reason: str | None
+) -> ApprovalRequestRecord:
     result = await db.execute(
         select(ApprovalRequestRecord)
         .where(ApprovalRequestRecord.request_id == request_id)
@@ -156,7 +163,9 @@ async def deny(db: AsyncSession, request_id: str, decided_by: str, reason: str |
     if record is None:
         raise ApprovalNotFoundError(f"Approval request '{request_id}' not found")
     if record.status != "pending":
-        raise ApprovalConflictError(f"Approval request {request_id} is already in status '{record.status}'")
+        raise ApprovalConflictError(
+            f"Approval request {request_id} is already in status '{record.status}'"
+        )
     record.status = "denied"
     record.decision = "denied"
     record.decided_by = decided_by
@@ -167,7 +176,9 @@ async def deny(db: AsyncSession, request_id: str, decided_by: str, reason: str |
     return record
 
 
-async def override(db: AsyncSession, request_id: str, decided_by: str, reason: str) -> ApprovalRequestRecord:
+async def override(
+    db: AsyncSession, request_id: str, decided_by: str, reason: str
+) -> ApprovalRequestRecord:
     """Break-glass override — always logs operator identity and reason."""
     result = await db.execute(
         select(ApprovalRequestRecord)
@@ -178,7 +189,9 @@ async def override(db: AsyncSession, request_id: str, decided_by: str, reason: s
     if record is None:
         raise ApprovalNotFoundError(f"Approval request '{request_id}' not found")
     if record.status != "pending":
-        raise ApprovalConflictError(f"Approval request {request_id} is already in status '{record.status}'")
+        raise ApprovalConflictError(
+            f"Approval request {request_id} is already in status '{record.status}'"
+        )
     record.status = "overridden"
     record.decision = "overridden"
     record.decided_by = decided_by

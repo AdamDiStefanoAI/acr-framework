@@ -1,4 +1,5 @@
 """Tests for pillar3_drift baseline and detector — require an in-memory DB."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
@@ -13,8 +14,8 @@ from acr.db.models import DriftMetricRecord
 from acr.pillar3_drift.baseline import (
     get_baseline_profile,
     get_or_create_baseline,
-    record_metric_sample,
     recompute_baseline,
+    record_metric_sample,
     reset_baseline,
 )
 from acr.pillar3_drift.detector import compute_drift_score, run_drift_check
@@ -28,6 +29,7 @@ from acr.pillar3_drift.governance import (
 )
 
 # ── Shared DB fixture ─────────────────────────────────────────────────────────
+
 
 @pytest_asyncio.fixture
 async def db():
@@ -48,6 +50,7 @@ async def db():
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 async def _seed_samples(
     db: AsyncSession,
@@ -73,6 +76,7 @@ async def _seed_samples(
 
 # ── Baseline tests ────────────────────────────────────────────────────────────
 
+
 class TestDriftBaseline:
     async def test_record_metric_sample_stored(self, db: AsyncSession):
         await record_metric_sample(
@@ -87,6 +91,7 @@ class TestDriftBaseline:
         await db.commit()
 
         from sqlalchemy import select
+
         result = await db.execute(
             select(DriftMetricRecord).where(DriftMetricRecord.agent_id == "agent-x")
         )
@@ -108,6 +113,7 @@ class TestDriftBaseline:
         await db.commit()
 
         from sqlalchemy import select
+
         result = await db.execute(
             select(DriftMetricRecord).where(DriftMetricRecord.agent_id == "agent-denied")
         )
@@ -249,6 +255,7 @@ class TestDriftBaseline:
 
 # ── Detector tests ────────────────────────────────────────────────────────────
 
+
 class TestDriftDetector:
     async def test_compute_drift_score_baseline_not_ready(self, db: AsyncSession):
         """Agent with no samples → score=0.0, is_baseline_ready=False."""
@@ -349,12 +356,14 @@ class TestDriftDetector:
 
 # ── Graduated response tests ──────────────────────────────────────────────────
 
+
 class TestGraduatedResponse:
     """Direct tests for pillar5_containment/graduated.py."""
 
     async def test_none_tier_returns_none(self, db: AsyncSession):
         """Score below THROTTLE threshold → no action taken."""
         from acr.pillar5_containment.graduated import apply_graduated_response
+
         result = await apply_graduated_response(db, "agent-g", 0.3)
         await db.commit()
         assert result is None
@@ -362,6 +371,7 @@ class TestGraduatedResponse:
     async def test_throttle_tier_records_action(self, db: AsyncSession):
         """Score in THROTTLE range → ContainmentAction with action_type='throttle'."""
         from acr.pillar5_containment.graduated import apply_graduated_response
+
         result = await apply_graduated_response(db, "agent-throttle", 0.62)
         await db.commit()
         assert result is not None
@@ -370,6 +380,7 @@ class TestGraduatedResponse:
 
     async def test_restrict_tier_records_action(self, db: AsyncSession):
         from acr.pillar5_containment.graduated import apply_graduated_response
+
         result = await apply_graduated_response(db, "agent-restrict", 0.75)
         await db.commit()
         assert result is not None
@@ -377,6 +388,7 @@ class TestGraduatedResponse:
 
     async def test_isolate_tier_records_action(self, db: AsyncSession):
         from acr.pillar5_containment.graduated import apply_graduated_response
+
         result = await apply_graduated_response(db, "agent-isolate", 0.92)
         await db.commit()
         assert result is not None
@@ -385,7 +397,9 @@ class TestGraduatedResponse:
     async def test_kill_tier_invokes_kill_switch(self, db: AsyncSession):
         """Score at KILL threshold → kill_agent called."""
         from unittest.mock import AsyncMock, patch
+
         from acr.pillar5_containment.graduated import apply_graduated_response
+
         with patch(
             "acr.pillar5_containment.graduated.kill_agent", new_callable=AsyncMock
         ) as mock_kill:
@@ -400,12 +414,16 @@ class TestGraduatedResponse:
     async def test_action_persisted_to_db(self, db: AsyncSession):
         """Containment action should be written to the DB."""
         from sqlalchemy import select
+
         from acr.db.models import ContainmentActionRecord
         from acr.pillar5_containment.graduated import apply_graduated_response
+
         await apply_graduated_response(db, "agent-persist", 0.62)
         await db.commit()
         result = await db.execute(
-            select(ContainmentActionRecord).where(ContainmentActionRecord.agent_id == "agent-persist")
+            select(ContainmentActionRecord).where(
+                ContainmentActionRecord.agent_id == "agent-persist"
+            )
         )
         record = result.scalar_one_or_none()
         assert record is not None

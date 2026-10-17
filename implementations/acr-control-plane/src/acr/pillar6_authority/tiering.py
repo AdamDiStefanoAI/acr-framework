@@ -1,4 +1,5 @@
 """Pillar 6: Action risk tiering — classify actions for approval routing."""
+
 from __future__ import annotations
 
 from typing import NamedTuple
@@ -44,11 +45,18 @@ def classify_action(
     }
 
     if tool_name in HIGH_RISK_TOOLS:
-        return TierResult(tier="high", approval_queue="high-risk-approvals", sla_minutes=240, auto_approve=False)
+        return TierResult(
+            tier="high", approval_queue="high-risk-approvals", sla_minutes=240, auto_approve=False
+        )
 
     if tool_name in MEDIUM_RISK_TOOLS:
         if agent_risk_tier == "high":
-            return TierResult(tier="medium", approval_queue="medium-risk-approvals", sla_minutes=60, auto_approve=False)
+            return TierResult(
+                tier="medium",
+                approval_queue="medium-risk-approvals",
+                sla_minutes=60,
+                auto_approve=False,
+            )
         return TierResult(tier="low", approval_queue="default", sla_minutes=0, auto_approve=True)
 
     # Default: low risk
