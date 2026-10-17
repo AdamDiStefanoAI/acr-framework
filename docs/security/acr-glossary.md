@@ -93,14 +93,14 @@ Human oversight mechanisms allow operators to intervene, override, or terminate 
 
 A threat model describing security risks associated with autonomous AI systems.
 
-STRIKE identifies six threat categories:
+STRIKE identifies six threat categories (per ACR Standard v1.0.1 §21):
 
-- Scope Escalation
-- Tool Misuse
-- Role Drift
+- Spoofing
+- Tampering
+- Reflection Abuse
 - Information Leakage
-- Kill Chain Expansion
-- Execution Manipulation
+- Kill Chain Extension
+- Emergence
 
 ---
 
@@ -158,10 +158,10 @@ The association of an AI system with a specific operational purpose (e.g. `custo
 
 # STRIKE (mnemonic)
 
-The six threat categories in the ACR/STRIKE threat model: **S**cope Escalation, **T**ool Misuse, **R**ole Drift, **I**nformation Leakage, **K**ill Chain Expansion, **E**xecution Manipulation. Used for risk assessment and mapping controls to threats. See [STRIKE Threat Model](./acr-strike-threat-model.md).
+The six threat categories in the ACR/STRIKE threat model: **S**poofing, **T**ampering, **R**eflection Abuse, **I**nformation Leakage, **K**ill Chain Extension, **E**mergence. Used for risk assessment and mapping controls to threats. See [STRIKE Threat Model](./acr-strike-threat-model.md).
 
 ---
 
-# ACR Maturity Level
+# ACR Conformance Level
 
-A staged adoption level (1, 2, or 3) indicating how many ACR pillars are implemented. Level 1: Observability & Policy. Level 2: + Drift Detection & Containment. Level 3: All six pillars. See [ADOPTION.md](../../ADOPTION.md).
+A cumulative conformance level (1, 2, or 3) per ACR Standard v1.0.1 §23. Level 1: Observability. Level 2: Enforcement. Level 3: Full Runtime Control Plane Compliance. Each level builds on the previous one. See [ADOPTION.md](../../ADOPTION.md).
