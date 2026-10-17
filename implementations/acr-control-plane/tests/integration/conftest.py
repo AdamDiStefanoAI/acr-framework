@@ -5,6 +5,7 @@ import os
 
 import pytest
 import pytest_asyncio
+from fastapi import Request as FastAPIRequest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -94,7 +95,6 @@ async def async_client(integration_engine) -> AsyncClient:
     app.dependency_overrides[get_db] = override_get_db
 
     # Bypass JWT auth for integration tests — use agent_id from request body
-    from fastapi import Request as FastAPIRequest
     from acr.gateway.auth import require_agent_token
     from acr.common.operator_auth import OperatorPrincipal, get_operator_principal
 
