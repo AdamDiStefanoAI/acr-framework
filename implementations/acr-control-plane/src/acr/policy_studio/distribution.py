@@ -37,10 +37,14 @@ def _common_policy_bytes() -> bytes:
         candidate = parent / "policies" / "acr" / "common.rego"
         if candidate.exists():
             return candidate.read_bytes()
-    raise FileNotFoundError("Unable to locate policies/acr/common.rego from policy_studio/distribution.py")
+    raise FileNotFoundError(
+        "Unable to locate policies/acr/common.rego from policy_studio/distribution.py"
+    )
 
 
-def build_active_runtime_bundle(active_releases: list[PolicyReleaseRecord]) -> RuntimeBundleArtifact:
+def build_active_runtime_bundle(
+    active_releases: list[PolicyReleaseRecord],
+) -> RuntimeBundleArtifact:
     buffer = io.BytesIO()
     active_agents = sorted({record.agent_id for record in active_releases})
 
@@ -57,7 +61,9 @@ def build_active_runtime_bundle(active_releases: list[PolicyReleaseRecord]) -> R
                             "release_id": record.release_id,
                             "agent_id": record.agent_id,
                             "version": record.version,
-                            "activated_at": record.activated_at.isoformat() if record.activated_at else None,
+                            "activated_at": record.activated_at.isoformat()
+                            if record.activated_at
+                            else None,
                         }
                         for record in active_releases
                     ],

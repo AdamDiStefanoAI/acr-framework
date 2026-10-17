@@ -1,9 +1,9 @@
 """Pillar 3 unit tests: drift signals and scoring."""
+
 from __future__ import annotations
 
 import pytest
 
-from acr.pillar3_drift.models import DriftSignal
 from acr.pillar3_drift.signals import (
     RawMetrics,
     composite_drift_score,
@@ -49,7 +49,7 @@ class TestDriftSignals:
         # Denial rate 100x higher than baseline
         metrics = RawMetrics(
             tool_calls_per_minute=5.0,
-            denial_rate=0.95,   # anomalous
+            denial_rate=0.95,  # anomalous
             error_rate=0.01,
             action_diversity=0.7,
         )

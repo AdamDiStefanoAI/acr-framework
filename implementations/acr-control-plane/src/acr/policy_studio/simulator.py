@@ -48,7 +48,9 @@ def simulate_policy_draft(
         matched_rules.append("spend_limit")
 
     pii_fields = [
-        item.strip() for item in str(wizard_inputs.get("pii_fields") or "").split(",") if item.strip()
+        item.strip()
+        for item in str(wizard_inputs.get("pii_fields") or "").split(",")
+        if item.strip()
     ]
     if tool_name == "send_email":
         for field in pii_fields:
@@ -89,7 +91,9 @@ def simulate_policy_draft(
         if isinstance(amount, (int, float)) and float(amount) > threshold:
             return PolicySimulationResponse(
                 final_decision="escalate",
-                reasons=[f"Amount {float(amount):.2f} exceeds escalation threshold {threshold:.2f}"],
+                reasons=[
+                    f"Amount {float(amount):.2f} exceeds escalation threshold {threshold:.2f}"
+                ],
                 approval_queue=approval_queue,
                 matched_rules=["escalate_threshold"],
                 manifest_summary={

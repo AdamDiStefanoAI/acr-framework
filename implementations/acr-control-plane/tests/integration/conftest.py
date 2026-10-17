@@ -1,4 +1,5 @@
 """Integration test fixtures: real Postgres, Redis, OPA — no mocks."""
+
 from __future__ import annotations
 
 import os
@@ -95,8 +96,8 @@ async def async_client(integration_engine) -> AsyncClient:
     app.dependency_overrides[get_db] = override_get_db
 
     # Bypass JWT auth for integration tests — use agent_id from request body
-    from acr.gateway.auth import require_agent_token
     from acr.common.operator_auth import OperatorPrincipal, get_operator_principal
+    from acr.gateway.auth import require_agent_token
 
     async def _mock_auth(request: FastAPIRequest) -> str:
         body = await request.json()
@@ -105,12 +106,12 @@ async def async_client(integration_engine) -> AsyncClient:
     app.dependency_overrides[require_agent_token] = _mock_auth
     app.dependency_overrides[get_operator_principal] = lambda: OperatorPrincipal(
         subject="test-operator",
-        roles=frozenset({"agent_admin", "approver", "security_admin", "auditor", "killswitch_operator"}),
+        roles=frozenset(
+            {"agent_admin", "approver", "security_admin", "auditor", "killswitch_operator"}
+        ),
     )
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
 
     app.dependency_overrides.clear()

@@ -6,10 +6,11 @@ no dependency on the kill switch service being up for reads.
 Write operations (kill/restore) call the independent kill switch service so that
 the service is the single authoritative writer.
 """
+
 from __future__ import annotations
 
-import structlog
 import httpx
+import structlog
 
 from acr.common.errors import KillSwitchError
 from acr.common.redis_client import get_redis_or_none

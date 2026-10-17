@@ -1,4 +1,5 @@
 """Pillar 3: Baseline collection and storage."""
+
 from __future__ import annotations
 
 import math
@@ -7,10 +8,9 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from acr.common.time import iso_utcnow, utcnow
+from acr.common.time import utcnow
 from acr.db.models import DriftBaselineRecord, DriftMetricRecord
 from acr.pillar3_drift.models import BaselineProfile
-from acr.pillar3_drift.signals import MIN_BASELINE_SAMPLES
 
 
 async def record_metric_sample(
@@ -53,7 +53,9 @@ async def get_or_create_baseline(db: AsyncSession, agent_id: str) -> DriftBaseli
     return record
 
 
-async def recompute_baseline(db: AsyncSession, agent_id: str, window_days: int = 30) -> DriftBaselineRecord:
+async def recompute_baseline(
+    db: AsyncSession, agent_id: str, window_days: int = 30
+) -> DriftBaselineRecord:
     """
     Recompute baseline statistics from recent metric samples.
     Uses mean + std for each behavioral signal.
@@ -102,9 +104,17 @@ async def recompute_baseline(db: AsyncSession, agent_id: str, window_days: int =
     # For a real system you'd accumulate Welford's online algorithm values.
     baseline_data = {
         "tool_call_frequency": {"mean": freq, "std": max(0.01, freq * 0.3), "count": n},
-        "denial_rate": {"mean": denial_rate, "std": max(0.01, denial_rate * 0.5 + 0.02), "count": n},
+        "denial_rate": {
+            "mean": denial_rate,
+            "std": max(0.01, denial_rate * 0.5 + 0.02),
+            "count": n,
+        },
         "error_rate": {"mean": error_rate, "std": max(0.01, error_rate * 0.5 + 0.01), "count": n},
-        "action_diversity": {"mean": normalized_entropy, "std": max(0.05, normalized_entropy * 0.2), "count": n},
+        "action_diversity": {
+            "mean": normalized_entropy,
+            "std": max(0.05, normalized_entropy * 0.2),
+            "count": n,
+        },
     }
 
     record = await get_or_create_baseline(db, agent_id)
@@ -147,7 +157,9 @@ async def get_baseline_profile(db: AsyncSession, agent_id: str) -> BaselineProfi
         agent_id=agent_id,
         metrics=record.baseline_data or {},
         sample_count=record.sample_count,
-        collection_started_at=record.collection_started_at.isoformat() if record.collection_started_at else None,
+        collection_started_at=record.collection_started_at.isoformat()
+        if record.collection_started_at
+        else None,
         last_updated_at=record.last_updated_at.isoformat() if record.last_updated_at else None,
         baseline_version_id=None,
         baseline_status=None,

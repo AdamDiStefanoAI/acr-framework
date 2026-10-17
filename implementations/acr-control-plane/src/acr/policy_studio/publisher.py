@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from acr.common.errors import PolicyValidationError
 from acr.config import policy_bundle_local_path, settings
@@ -17,13 +16,17 @@ class PublishedBundle:
 
 def _public_bundle_uri(*, agent_id: str, version: int, filename: str) -> str | None:
     if settings.policy_bundle_public_base_url:
-        return f"{settings.policy_bundle_public_base_url.rstrip('/')}/{agent_id}/v{version}/{filename}"
+        return (
+            f"{settings.policy_bundle_public_base_url.rstrip('/')}/{agent_id}/v{version}/{filename}"
+        )
     return None
 
 
 def _public_active_bundle_uri(*, agent_id: str) -> str | None:
     if settings.policy_bundle_public_base_url:
-        return f"{settings.policy_bundle_public_base_url.rstrip('/')}/{agent_id}/active/current.tar.gz"
+        return (
+            f"{settings.policy_bundle_public_base_url.rstrip('/')}/{agent_id}/active/current.tar.gz"
+        )
     return None
 
 
@@ -76,9 +79,7 @@ def _s3_client():
     try:
         import boto3
     except ModuleNotFoundError as exc:
-        raise PolicyValidationError(
-            "boto3 is required for POLICY_BUNDLE_BACKEND=s3"
-        ) from exc
+        raise PolicyValidationError("boto3 is required for POLICY_BUNDLE_BACKEND=s3") from exc
 
     client_kwargs: dict[str, str] = {}
     if settings.policy_bundle_s3_region:
@@ -101,9 +102,7 @@ def _publish_s3_bundle(
         )
 
     prefix = settings.policy_bundle_s3_prefix.strip().strip("/")
-    key = "/".join(
-        part for part in [prefix, agent_id, f"v{version}", artifact.filename] if part
-    )
+    key = "/".join(part for part in [prefix, agent_id, f"v{version}", artifact.filename] if part)
 
     client = _s3_client()
     client.put_object(
@@ -171,8 +170,7 @@ def publish_policy_bundle(
     if backend == "s3":
         return _publish_s3_bundle(agent_id=agent_id, version=version, artifact=artifact)
     raise PolicyValidationError(
-        f"Unsupported POLICY_BUNDLE_BACKEND '{backend}'. "
-        "Supported backends: local, s3."
+        f"Unsupported POLICY_BUNDLE_BACKEND '{backend}'. Supported backends: local, s3."
     )
 
 
@@ -187,6 +185,5 @@ def publish_active_policy_bundle(
     if backend == "s3":
         return _publish_s3_active_bundle(agent_id=agent_id, artifact=artifact)
     raise PolicyValidationError(
-        f"Unsupported POLICY_BUNDLE_BACKEND '{backend}'. "
-        "Supported backends: local, s3."
+        f"Unsupported POLICY_BUNDLE_BACKEND '{backend}'. Supported backends: local, s3."
     )

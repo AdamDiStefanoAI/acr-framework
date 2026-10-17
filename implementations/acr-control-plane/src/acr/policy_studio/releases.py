@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +30,9 @@ def validate_policy_draft_record(record: PolicyDraftRecord) -> PolicyValidationR
     if "package acr" not in record.rego_policy:
         issues.append("Rego policy must declare 'package acr'")
     if wizard.get("escalate_tool") and "escalate" not in record.rego_policy:
-        warnings.append("Wizard defines an escalation tool but generated policy does not include an escalate rule")
+        warnings.append(
+            "Wizard defines an escalation tool but generated policy does not include an escalate rule"
+        )
     if manifest.get("risk_tier") == "high":
         warnings.append("High-risk agent: require approval before enabling in production")
 
@@ -100,7 +102,7 @@ async def activate_policy_release(
     record.activation_status = "active"
     record.active_bundle_uri = published.uri
     record.activated_by = actor
-    record.activated_at = datetime.now(timezone.utc)
+    record.activated_at = datetime.now(UTC)
 
     await db.flush()
     await db.refresh(record)
@@ -120,7 +122,9 @@ async def publish_policy_draft(
         raise PolicyValidationError("; ".join(validation.issues))
 
     version_result = await db.execute(
-        select(func.max(PolicyReleaseRecord.version)).where(PolicyReleaseRecord.agent_id == draft.agent_id)
+        select(func.max(PolicyReleaseRecord.version)).where(
+            PolicyReleaseRecord.agent_id == draft.agent_id
+        )
     )
     current_version = version_result.scalar_one_or_none() or 0
 

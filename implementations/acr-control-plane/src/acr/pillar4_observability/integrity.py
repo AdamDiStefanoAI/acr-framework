@@ -71,7 +71,9 @@ def verify_event_chain(events: list[dict[str, Any]]) -> dict[str, Any]:
 
         expected_signature = sign_payload_hash(expected_hash, previous_hash)
         actual_signature = integrity.get("record_signature")
-        if not actual_signature or not hmac.compare_digest(str(actual_signature), expected_signature):
+        if not actual_signature or not hmac.compare_digest(
+            str(actual_signature), expected_signature
+        ):
             invalid_reasons.append(f"event[{index}] record signature mismatch")
             break
 

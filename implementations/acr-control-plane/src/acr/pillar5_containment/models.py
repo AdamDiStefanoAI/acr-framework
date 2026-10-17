@@ -1,8 +1,8 @@
 """Pillar 5: Self-Healing & Containment — models."""
+
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Literal
 
 from pydantic import BaseModel
 
@@ -11,10 +11,10 @@ class ContainmentTier(IntEnum):
     """Graduated response tiers, per spec."""
 
     NONE = 0
-    THROTTLE = 1     # drift >= 0.6 — reduce rate limit 50%
-    RESTRICT = 2     # drift >= 0.7 — remove high-risk tools
-    ISOLATE = 3      # drift >= 0.85 — read-only mode
-    KILL = 4         # drift >= 0.95 — full shutdown
+    THROTTLE = 1  # drift >= 0.6 — reduce rate limit 50%
+    RESTRICT = 2  # drift >= 0.7 — remove high-risk tools
+    ISOLATE = 3  # drift >= 0.85 — read-only mode
+    KILL = 4  # drift >= 0.95 — full shutdown
 
 
 DRIFT_THRESHOLDS: dict[ContainmentTier, float] = {

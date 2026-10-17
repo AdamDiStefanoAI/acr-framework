@@ -1,11 +1,10 @@
 """Tests for pillar5_containment/service.py — independent kill switch FastAPI app."""
+
 from __future__ import annotations
 
-import pytest
+import fakeredis.aioredis
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-
-import fakeredis.aioredis
 
 from acr.pillar5_containment import service as ks
 
@@ -23,13 +22,9 @@ async def killswitch_client():
     original_operator_keys = ks.OPERATOR_API_KEYS_JSON
     ks._redis = fake_redis
     ks.KILLSWITCH_SECRET = SECRET
-    ks.OPERATOR_API_KEYS_JSON = (
-        '{"test-operator-key-ci":{"subject":"security-team","roles":["security_admin","killswitch_operator","auditor"]}}'
-    )
+    ks.OPERATOR_API_KEYS_JSON = '{"test-operator-key-ci":{"subject":"security-team","roles":["security_admin","killswitch_operator","auditor"]}}'
 
-    async with AsyncClient(
-        transport=ASGITransport(app=ks.app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=ks.app), base_url="http://test") as client:
         yield client
 
     ks._redis = original_redis
@@ -39,6 +34,7 @@ async def killswitch_client():
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
+
 
 class TestKillSwitchHealth:
     async def test_health_returns_ok(self, killswitch_client: AsyncClient):
@@ -50,11 +46,16 @@ class TestKillSwitchHealth:
 
 # ── Kill ──────────────────────────────────────────────────────────────────────
 
+
 class TestKillEndpoint:
     async def test_kill_agent_success(self, killswitch_client: AsyncClient):
         resp = await killswitch_client.post(
             "/acr/kill",
-            json={"agent_id": "bot-01", "reason": "anomaly detected", "operator_id": "security-team"},
+            json={
+                "agent_id": "bot-01",
+                "reason": "anomaly detected",
+                "operator_id": "security-team",
+            },
             headers={"X-Killswitch-Secret": SECRET, "X-Operator-API-Key": OPERATOR_KEY},
         )
         assert resp.status_code == 200
@@ -81,6 +82,7 @@ class TestKillEndpoint:
 
 
 # ── Restore ───────────────────────────────────────────────────────────────────
+
 
 class TestRestoreEndpoint:
     async def test_restore_clears_kill_state(self, killswitch_client: AsyncClient):
@@ -109,6 +111,7 @@ class TestRestoreEndpoint:
 
 # ── Status ────────────────────────────────────────────────────────────────────
 
+
 class TestStatusEndpoints:
     async def test_status_not_killed(self, killswitch_client: AsyncClient):
         resp = await killswitch_client.get(
@@ -121,7 +124,11 @@ class TestStatusEndpoints:
     async def test_status_killed_agent_shows_metadata(self, killswitch_client: AsyncClient):
         await killswitch_client.post(
             "/acr/kill",
-            json={"agent_id": "bot-status", "reason": "drift exceeded threshold", "operator_id": "auto"},
+            json={
+                "agent_id": "bot-status",
+                "reason": "drift exceeded threshold",
+                "operator_id": "auto",
+            },
             headers={"X-Killswitch-Secret": SECRET, "X-Operator-API-Key": OPERATOR_KEY},
         )
         resp = await killswitch_client.get(

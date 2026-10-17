@@ -31,5 +31,4 @@ else:
         return HTMLResponse(html)
 
 
-
 static_files = StaticFiles(directory=str(_STATIC_DIR), html=False)

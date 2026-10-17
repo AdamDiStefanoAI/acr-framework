@@ -1,4 +1,5 @@
 """Pillar 6: Human Authority API — approve, deny, override, list."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -38,7 +39,9 @@ def _to_response(record) -> ApprovalResponse:
 @router.get("", response_model=list[ApprovalResponse])
 async def list_pending(
     db: AsyncSession = Depends(get_db),
-    principal: OperatorPrincipal = Depends(require_operator_roles("approver", "auditor", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("approver", "auditor", "security_admin")
+    ),
 ) -> list[ApprovalResponse]:
     records = await ap.list_pending_approvals(db)
     return [_to_response(r) for r in records]
@@ -48,7 +51,9 @@ async def list_pending(
 async def get_approval(
     request_id: str,
     db: AsyncSession = Depends(get_db),
-    principal: OperatorPrincipal = Depends(require_operator_roles("approver", "auditor", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("approver", "auditor", "security_admin")
+    ),
 ) -> ApprovalResponse:
     record = await ap.get_approval_request(db, request_id)
     return _to_response(record)
@@ -92,6 +97,7 @@ async def override(
     """Break-glass override. Requires reason and operator identity. Always logged."""
     if not body.reason:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=422, detail="Break-glass override requires a reason")
     record = await ap.override(db, request_id, principal.subject, body.reason)
     if settings.execute_allowed_actions:

@@ -4,10 +4,11 @@ Revision ID: 0004
 Revises: 0003
 Create Date: 2026-03-17
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
 revision = "0004"

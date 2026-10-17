@@ -1,4 +1,5 @@
 """Tests for pillar2_policy/engine.py — OPA client with retry logic."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -32,6 +33,7 @@ def _make_opa_client(status_code: int, json_data: dict):
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
+
 class TestOPADecisions:
     async def test_allow_decision(self):
         client = _make_opa_client(200, {"result": {"allow": True, "deny": []}})
@@ -50,10 +52,15 @@ class TestOPADecisions:
         assert "Forbidden tool" in result.reason
 
     async def test_multiple_deny_reasons_all_recorded(self):
-        client = _make_opa_client(200, {"result": {
-            "allow": False,
-            "deny": ["rate limit exceeded", "spend limit exceeded"],
-        }})
+        client = _make_opa_client(
+            200,
+            {
+                "result": {
+                    "allow": False,
+                    "deny": ["rate limit exceeded", "spend limit exceeded"],
+                }
+            },
+        )
         with patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=client):
             result = await evaluate_policy(AGENT, ACTION, CONTEXT)
         assert result.final_decision == "deny"
@@ -61,13 +68,18 @@ class TestOPADecisions:
         assert "rate limit exceeded" in result.reason
 
     async def test_escalate_decision(self):
-        client = _make_opa_client(200, {"result": {
-            "allow": False,
-            "deny": [],
-            "escalate": True,
-            "escalate_queue": "finance-approvals",
-            "escalate_sla_minutes": 120,
-        }})
+        client = _make_opa_client(
+            200,
+            {
+                "result": {
+                    "allow": False,
+                    "deny": [],
+                    "escalate": True,
+                    "escalate_queue": "finance-approvals",
+                    "escalate_sla_minutes": 120,
+                }
+            },
+        )
         with patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=client):
             result = await evaluate_policy(AGENT, ACTION, CONTEXT)
         assert result.final_decision == "escalate"
@@ -137,7 +149,9 @@ class TestOPAContextDefaults:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=mock_client):
-            await evaluate_policy(AGENT, ACTION, {"actions_this_minute": 7, "hourly_spend_usd": 2.5})
+            await evaluate_policy(
+                AGENT, ACTION, {"actions_this_minute": 7, "hourly_spend_usd": 2.5}
+            )
 
         ctx = captured["input"]["context"]
         assert ctx["actions_this_minute"] == 7
@@ -158,10 +172,12 @@ class TestOPARetryLogic:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=mock_client):
-            with patch("acr.pillar2_policy.engine.asyncio.sleep"):  # skip actual delays
-                with pytest.raises(PolicyEngineError):
-                    await evaluate_policy(AGENT, ACTION, CONTEXT)
+        with (
+            patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=mock_client),
+            patch("acr.pillar2_policy.engine.asyncio.sleep"),  # skip actual delays
+            pytest.raises(PolicyEngineError),
+        ):
+            await evaluate_policy(AGENT, ACTION, CONTEXT)
 
         # Should have been called _MAX_RETRIES (3) times
         assert mock_client.post.await_count == 3
@@ -175,14 +191,15 @@ class TestOPARetryLogic:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=mock_client):
-            with patch("acr.pillar2_policy.engine.asyncio.sleep"):
-                with pytest.raises(PolicyEngineError):
-                    await evaluate_policy(AGENT, ACTION, CONTEXT)
+        with (
+            patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=mock_client),
+            patch("acr.pillar2_policy.engine.asyncio.sleep"),
+            pytest.raises(PolicyEngineError),
+        ):
+            await evaluate_policy(AGENT, ACTION, CONTEXT)
 
     async def test_success_after_retry(self):
         """First call fails with 503, second succeeds → returns allow."""
-        import httpx as _httpx
 
         fail_resp = MagicMock()
         fail_resp.status_code = 503
@@ -201,9 +218,11 @@ class TestOPARetryLogic:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=mock_client):
-            with patch("acr.pillar2_policy.engine.asyncio.sleep"):
-                result = await evaluate_policy(AGENT, ACTION, CONTEXT)
+        with (
+            patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=mock_client),
+            patch("acr.pillar2_policy.engine.asyncio.sleep"),
+        ):
+            result = await evaluate_policy(AGENT, ACTION, CONTEXT)
 
         assert result.final_decision == "allow"
         assert mock_client.post.await_count == 2
@@ -216,9 +235,11 @@ class TestOPARetryLogic:
         mock_resp = MagicMock()
         mock_resp.status_code = 400
         mock_resp.json.return_value = {}
-        mock_resp.raise_for_status = MagicMock(side_effect=_httpx.HTTPStatusError(
-            "bad request", request=MagicMock(), response=MagicMock()
-        ))
+        mock_resp.raise_for_status = MagicMock(
+            side_effect=_httpx.HTTPStatusError(
+                "bad request", request=MagicMock(), response=MagicMock()
+            )
+        )
         mock_resp.request = MagicMock()
 
         mock_client = AsyncMock()
@@ -226,10 +247,12 @@ class TestOPARetryLogic:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=mock_client):
-            with patch("acr.pillar2_policy.engine.asyncio.sleep"):
-                with pytest.raises(PolicyEngineError):
-                    await evaluate_policy(AGENT, ACTION, CONTEXT)
+        with (
+            patch("acr.pillar2_policy.engine.httpx.AsyncClient", return_value=mock_client),
+            patch("acr.pillar2_policy.engine.asyncio.sleep"),
+            pytest.raises(PolicyEngineError),
+        ):
+            await evaluate_policy(AGENT, ACTION, CONTEXT)
 
         # 4xx goes through the generic except handler → retried all 3 times
         assert mock_client.post.await_count == 3

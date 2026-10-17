@@ -3,19 +3,20 @@
 Requires RUN_INTEGRATION_TESTS=true and running services
 (see docker-compose.yml or CI job).
 """
+
 from __future__ import annotations
+
+from datetime import UTC
 
 import httpx
 import pytest
-from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from tests.integration.conftest import TEST_OPA_URL, TEST_REDIS_URL
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 async def _register_agent(client: httpx.AsyncClient, agent_id: str = "integ-agent-01") -> dict:
     resp = await client.post(
@@ -55,6 +56,7 @@ async def _evaluate_action(
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 
+
 async def test_full_evaluate_flow_real_stack(async_client, db: AsyncSession):
     """Register agent -> issue token -> evaluate allowed action -> verify evidence."""
     await _register_agent(async_client)
@@ -74,20 +76,22 @@ async def test_kill_switch_enforced_real_redis(async_client, redis_client):
 
     # Directly set kill switch in Redis (mirrors what the kill switch service does)
     import json
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    kill_data = json.dumps({
-        "agent_id": agent_id,
-        "is_killed": True,
-        "reason": "Integration test kill",
-        "killed_at": datetime.now(timezone.utc).isoformat(),
-        "killed_by": "test-operator",
-    })
+    kill_data = json.dumps(
+        {
+            "agent_id": agent_id,
+            "is_killed": True,
+            "reason": "Integration test kill",
+            "killed_at": datetime.now(UTC).isoformat(),
+            "killed_by": "test-operator",
+        }
+    )
     await redis_client.set(f"acr:kill:{agent_id}", kill_data)
 
     # Now evaluate — should be denied due to kill switch
     resp = await _evaluate_action(async_client, agent_id=agent_id)
-    data = resp.json()
+    resp.json()
 
     # The agent should be denied (kill switch enforced)
     # Note: depending on whether the test client's Redis matches the app's Redis,
@@ -142,9 +146,7 @@ async def test_approval_flow_real_stack(async_client, db: AsyncSession):
     await _register_agent(async_client, agent_id=agent_id)
 
     # Try to evaluate with a forbidden tool (should trigger deny or escalate)
-    resp = await _evaluate_action(
-        async_client, agent_id=agent_id, tool_name="delete_customer"
-    )
+    resp = await _evaluate_action(async_client, agent_id=agent_id, tool_name="delete_customer")
     data = resp.json()
     assert "decision" in data
 

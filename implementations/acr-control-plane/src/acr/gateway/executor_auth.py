@@ -4,13 +4,15 @@ import hashlib
 import hmac
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import jwt
 from fastapi import Header, Request
-from jose import JWTError, ExpiredSignatureError, jwt
+from jwt import ExpiredSignatureError, PyJWTError
 
 from acr.common.errors import InvalidExecutionAuthorizationError
+from acr.common.jwt_validation import decode_jwt
 from acr.config import settings
 
 _EXECUTION_TOKEN_ALGORITHM = "HS256"
@@ -72,7 +74,7 @@ def build_execution_token(
     approval_request_id: str | None = None,
 ) -> str:
     secret = _require_execution_secret()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     claims = {
         "iss": _EXECUTION_TOKEN_ISSUER,
         "sub": tool_name,
@@ -128,7 +130,7 @@ def build_brokered_execution_credential(
     approval_request_id: str | None = None,
 ) -> str:
     secret = _require_credential_secret()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     claims = {
         "iss": _EXECUTION_TOKEN_ISSUER,
         "sub": f"acr-executor:{agent_id}:{tool_name}",
@@ -152,7 +154,7 @@ def verify_brokered_execution_credential(
 ) -> BrokeredExecutionCredential:
     secret = _require_credential_secret()
     try:
-        claims = jwt.decode(
+        claims = decode_jwt(
             token,
             secret,
             algorithms=[_EXECUTION_TOKEN_ALGORITHM],
@@ -160,9 +162,13 @@ def verify_brokered_execution_credential(
             audience=audience,
         )
     except ExpiredSignatureError as exc:
-        raise InvalidExecutionAuthorizationError("Brokered execution credential has expired") from exc
-    except JWTError as exc:
-        raise InvalidExecutionAuthorizationError("Brokered execution credential is invalid") from exc
+        raise InvalidExecutionAuthorizationError(
+            "Brokered execution credential has expired"
+        ) from exc
+    except PyJWTError as exc:
+        raise InvalidExecutionAuthorizationError(
+            "Brokered execution credential is invalid"
+        ) from exc
 
     scopes_raw = claims.get("scopes") or []
     if not isinstance(scopes_raw, list):
@@ -196,16 +202,20 @@ def verify_execution_token(
 ) -> ExecutionAuthorization:
     secret = _require_execution_secret()
     try:
-        claims = jwt.decode(
+        claims = decode_jwt(
             token,
             secret,
             algorithms=[_EXECUTION_TOKEN_ALGORITHM],
             issuer=_EXECUTION_TOKEN_ISSUER,
         )
     except ExpiredSignatureError as exc:
-        raise InvalidExecutionAuthorizationError("Execution authorization token has expired") from exc
-    except JWTError as exc:
-        raise InvalidExecutionAuthorizationError("Execution authorization token is invalid") from exc
+        raise InvalidExecutionAuthorizationError(
+            "Execution authorization token has expired"
+        ) from exc
+    except PyJWTError as exc:
+        raise InvalidExecutionAuthorizationError(
+            "Execution authorization token is invalid"
+        ) from exc
 
     expected_hash = execution_payload_sha256(payload)
     actual_hash = str(claims.get("payload_sha256") or "")
@@ -242,7 +252,9 @@ async def require_gateway_execution(
     try:
         payload = await request.json()
     except json.JSONDecodeError as exc:
-        raise InvalidExecutionAuthorizationError("Execution request body must be valid JSON") from exc
+        raise InvalidExecutionAuthorizationError(
+            "Execution request body must be valid JSON"
+        ) from exc
 
     if not isinstance(payload, dict):
         raise InvalidExecutionAuthorizationError("Execution request body must be a JSON object")

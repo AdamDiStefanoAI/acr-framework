@@ -230,6 +230,8 @@ jobs:
             dockerfile: Dockerfile
           - service: killswitch
             dockerfile: Dockerfile.killswitch
+          - service: protected-executor
+            dockerfile: examples/protected_executor/Dockerfile
     steps:
       - uses: actions/checkout@v7
         with:
@@ -244,6 +246,13 @@ jobs:
           context: implementations/acr-control-plane
           file: implementations/acr-control-plane/${{ matrix.dockerfile }}
           push: false
+          load: ${{ matrix.service == 'protected-executor' }}
           cache-from: type=gha,scope=acr-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=acr-${{ matrix.service }}
           tags: acr-${{ matrix.service }}:ci
+
+      - name: Verify protected executor starts as non-root
+        if: matrix.service == 'protected-executor'
+        run: |
+          docker run --rm --entrypoint python acr-protected-executor:ci -c \
+            "import os; assert os.getuid() != 0; from examples.protected_executor.app import app; assert app"

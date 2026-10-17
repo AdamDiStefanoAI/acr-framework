@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from acr.db.models import DriftMetricRecord
 
@@ -52,14 +52,20 @@ class TestDriftGovernanceAPI:
 
         events_resp = await async_client.get(
             "/acr/events",
-            params={"agent_id": sample_agent.agent_id, "event_type": "human_intervention", "limit": 10},
+            params={
+                "agent_id": sample_agent.agent_id,
+                "event_type": "human_intervention",
+                "limit": 10,
+            },
         )
         assert events_resp.status_code == 200
         events = events_resp.json()
         actions = {event["custom"].get("baseline_action") for event in events}
         assert {"proposed", "approved", "activated"} <= actions
 
-        governed_events = [event for event in events if event["request"]["tool_name"] == "baseline_governance"]
+        governed_events = [
+            event for event in events if event["request"]["tool_name"] == "baseline_governance"
+        ]
         assert governed_events
         assert any(
             event["custom"].get("baseline_version_id") == baseline_version_id
@@ -81,10 +87,13 @@ class TestDriftGovernanceAPI:
 
         events_resp = await async_client.get(
             "/acr/events",
-            params={"agent_id": sample_agent.agent_id, "event_type": "human_intervention", "limit": 10},
+            params={
+                "agent_id": sample_agent.agent_id,
+                "event_type": "human_intervention",
+                "limit": 10,
+            },
         )
         assert events_resp.status_code == 200
         assert any(
-            event["custom"].get("baseline_action") == "reset"
-            for event in events_resp.json()
+            event["custom"].get("baseline_action") == "reset" for event in events_resp.json()
         )

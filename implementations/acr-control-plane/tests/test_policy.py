@@ -1,7 +1,6 @@
 """Pillar 2 unit tests: PII redaction and output filtering."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from acr.pillar2_policy.output_filter import filter_parameters, redact_parameters
 

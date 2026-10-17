@@ -1,4 +1,5 @@
 """Extended authority tests: tiering, override, expiry, HMAC signing, webhook."""
+
 from __future__ import annotations
 
 import hashlib
@@ -26,6 +27,7 @@ from acr.pillar6_authority.tiering import classify_action
 
 # ── DB fixture ────────────────────────────────────────────────────────────────
 
+
 @pytest_asyncio.fixture
 async def db():
     engine = create_async_engine(
@@ -46,6 +48,7 @@ async def db():
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
+
 async def _make_approval(
     db: AsyncSession,
     *,
@@ -54,8 +57,7 @@ async def _make_approval(
     agent_id: str = "test-agent",
 ) -> ApprovalRequestRecord:
     expires_at = (
-        utcnow() - timedelta(minutes=5) if already_expired
-        else utcnow() + timedelta(minutes=240)
+        utcnow() - timedelta(minutes=5) if already_expired else utcnow() + timedelta(minutes=240)
     )
     record = ApprovalRequestRecord(
         request_id=f"apr-adv-{uuid.uuid4().hex}",
@@ -75,6 +77,7 @@ async def _make_approval(
 
 
 # ── Tiering ───────────────────────────────────────────────────────────────────
+
 
 class TestTiering:
     def test_high_risk_tool_always_needs_approval(self):
@@ -120,6 +123,7 @@ class TestTiering:
 
 # ── HMAC signing ──────────────────────────────────────────────────────────────
 
+
 class TestWebhookSigning:
     def test_sign_payload_produces_hmac_sha256(self):
         payload = {"event": "approval_request_created", "agent_id": "x", "amount": 100}
@@ -154,6 +158,7 @@ class TestWebhookSigning:
 
 # ── Override ──────────────────────────────────────────────────────────────────
 
+
 class TestBreakGlassOverride:
     async def test_override_sets_overridden_status(self, db: AsyncSession):
         record = await _make_approval(db)
@@ -168,11 +173,13 @@ class TestBreakGlassOverride:
 
     async def test_override_not_found_raises(self, db: AsyncSession):
         from acr.common.errors import ApprovalNotFoundError
+
         with pytest.raises(ApprovalNotFoundError):
             await override(db, "nonexistent-id", "ops", "reason")
 
 
 # ── Expiry ────────────────────────────────────────────────────────────────────
+
 
 class TestApprovalExpiry:
     async def test_expire_marks_past_due_approvals_as_timed_out(self, db: AsyncSession):
@@ -212,9 +219,13 @@ class TestApprovalExpiry:
         await db.commit()
 
         assert count == 2
+        await db.refresh(r1)
+        await db.refresh(r2)
+        assert r1.status == r2.status == "timed_out"
 
 
 # ── Webhook ───────────────────────────────────────────────────────────────────
+
 
 class TestApprovalWebhook:
     async def test_create_approval_fires_webhook_when_url_set(self, db: AsyncSession):
@@ -228,7 +239,9 @@ class TestApprovalWebhook:
         with patch("acr.pillar6_authority.approval.settings") as mock_settings:
             mock_settings.webhook_url = "http://hooks.example.com/acr"
             mock_settings.webhook_hmac_secret = "webhook-secret"
-            with patch("acr.pillar6_authority.approval.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "acr.pillar6_authority.approval.httpx.AsyncClient", return_value=mock_client
+            ):
                 record = await create_approval_request(
                     db,
                     correlation_id="corr-wh-test",
@@ -245,6 +258,7 @@ class TestApprovalWebhook:
         call_kwargs = mock_client.post.call_args
         headers = call_kwargs.kwargs.get("headers", {})
         assert "X-ACR-Signature" in headers
+        assert call_kwargs.kwargs["json"]["request_id"] == record.request_id
 
     async def test_create_approval_webhook_failure_does_not_raise(self, db: AsyncSession):
         """Webhook failure is fire-and-forget — the approval should still be created."""
@@ -256,7 +270,9 @@ class TestApprovalWebhook:
         with patch("acr.pillar6_authority.approval.settings") as mock_settings:
             mock_settings.webhook_url = "http://hooks.example.com/acr"
             mock_settings.webhook_hmac_secret = ""
-            with patch("acr.pillar6_authority.approval.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "acr.pillar6_authority.approval.httpx.AsyncClient", return_value=mock_client
+            ):
                 record = await create_approval_request(
                     db,
                     correlation_id="corr-wh-fail",
@@ -278,7 +294,9 @@ class TestApprovalWebhook:
         with patch("acr.pillar6_authority.approval.settings") as mock_settings:
             mock_settings.webhook_url = ""
             mock_settings.webhook_hmac_secret = ""
-            with patch("acr.pillar6_authority.approval.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "acr.pillar6_authority.approval.httpx.AsyncClient", return_value=mock_client
+            ):
                 record = await create_approval_request(
                     db,
                     correlation_id="corr-no-wh",
@@ -292,3 +310,5 @@ class TestApprovalWebhook:
         await db.commit()
 
         mock_client.__aenter__.assert_not_called()
+        assert record.status == "pending"
+        assert record.expires_at is None

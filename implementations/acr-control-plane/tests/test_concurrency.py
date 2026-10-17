@@ -4,10 +4,10 @@ Tests exercise concurrent approval, kill-switch, and timeout-race scenarios
 to verify there are no double-execution bugs or inconsistent states under
 parallel access.
 """
+
 from __future__ import annotations
 
 import asyncio
-from collections import Counter
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -15,14 +15,13 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from acr.pillar6_authority.approval import (
-    approve,
     create_approval_request,
     expire_timed_out_approvals,
     get_approval_request,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 async def _seed_approval(db: AsyncSession, agent_id: str, sla_minutes: int = 240) -> str:
     """Create a pending approval and commit; return its request_id."""
@@ -42,12 +41,16 @@ async def _seed_approval(db: AsyncSession, agent_id: str, sla_minutes: int = 240
 
 # ── Test A: Concurrent Approval — Double-Execution Prevention ────────────────
 
+
 class TestConcurrentApproval:
     """Two operators simultaneously approving the same request should result
     in exactly one success (200) and one conflict (409) or error."""
 
     async def test_concurrent_approve_prevents_double_execution(
-        self, async_client: AsyncClient, db: AsyncSession, sample_agent,
+        self,
+        async_client: AsyncClient,
+        db: AsyncSession,
+        sample_agent,
     ) -> None:
         request_id = await _seed_approval(db, sample_agent.agent_id)
 
@@ -84,12 +87,16 @@ class TestConcurrentApproval:
 
 # ── Test B: Kill Switch During In-Flight Evaluate ────────────────────────────
 
+
 class TestKillSwitchDuringEvaluate:
     """Kill switch fired while evaluations are in flight should cause
     subsequent evaluations to be denied."""
 
     async def test_kill_switch_during_concurrent_evaluate(
-        self, async_client: AsyncClient, db: AsyncSession, sample_agent,
+        self,
+        async_client: AsyncClient,
+        db: AsyncSession,
+        sample_agent,
     ) -> None:
         # We need to override the kill switch mock so we can control when the
         # kill switch fires mid-flight.
@@ -114,10 +121,7 @@ class TestKillSwitchDuringEvaluate:
             ),
         ):
             # Fire 5 concurrent evaluate calls
-            tasks = [
-                async_client.post("/acr/evaluate", json=eval_payload)
-                for _ in range(5)
-            ]
+            tasks = [async_client.post("/acr/evaluate", json=eval_payload) for _ in range(5)]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         statuses = []
@@ -130,7 +134,6 @@ class TestKillSwitchDuringEvaluate:
             # Every response must have a decision field
             assert "decision" in data
 
-        status_counts = Counter(statuses)
         # All evaluations should either succeed (200) or deny (403)
         for status in statuses:
             assert status in (200, 403), f"Unexpected status code: {status}"
@@ -148,12 +151,16 @@ class TestKillSwitchDuringEvaluate:
 
 # ── Test C: Approval Timeout Race ────────────────────────────────────────────
 
+
 class TestApprovalTimeoutRace:
     """Expiry loop running while operator manually approves should not
     leave the record in an inconsistent state."""
 
     async def test_approval_timeout_does_not_race_with_manual_approve(
-        self, async_client: AsyncClient, db: AsyncSession, sample_agent,
+        self,
+        async_client: AsyncClient,
+        db: AsyncSession,
+        sample_agent,
     ) -> None:
         # Create a pending approval with a very short timeout (1 second)
         request_id = await _seed_approval(db, sample_agent.agent_id, sla_minutes=0)
@@ -161,8 +168,9 @@ class TestApprovalTimeoutRace:
         # The record should already be "expired" (expires_at is in the past
         # or None when sla_minutes=0). Let's create one with a valid expiry
         # that we can immediately expire.
-        from acr.common.time import utcnow
         from datetime import timedelta
+
+        from acr.common.time import utcnow
 
         record = await get_approval_request(db, request_id)
         # Set expires_at to 1 second ago to make it eligible for expiry

@@ -1,4 +1,5 @@
 """Gateway middleware: correlation ID injection and request timing."""
+
 from __future__ import annotations
 
 import time

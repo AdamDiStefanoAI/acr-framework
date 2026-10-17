@@ -1,7 +1,8 @@
 """Pillar 1 unit tests: agent registry and token issuance."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +14,6 @@ from acr.common.errors import (
     AgentNotRegisteredError,
 )
 from acr.pillar1_identity.models import (
-    AgentBoundaries,
     AgentRegisterRequest,
     AgentUpdateRequest,
 )
@@ -92,10 +92,13 @@ class TestTokens:
 
     def test_invalid_token_raises(self) -> None:
         from acr.common.errors import InvalidTokenError
+
         with pytest.raises(InvalidTokenError):
             decode_token("not.a.valid.jwt")
 
-    async def test_deregistered_agent_cannot_issue_token(self, db: AsyncSession, sample_agent) -> None:
+    async def test_deregistered_agent_cannot_issue_token(
+        self, db: AsyncSession, sample_agent
+    ) -> None:
         await deregister_agent(db, sample_agent.agent_id)
         await db.commit()
 
@@ -135,9 +138,7 @@ class TestLifecycle:
         with pytest.raises(AgentLifecycleError):
             await validate_agent_identity(db, "draft-blocked", check_kill_switch=False)
 
-    async def test_lifecycle_transition_draft_to_active(
-        self, db: AsyncSession
-    ) -> None:
+    async def test_lifecycle_transition_draft_to_active(self, db: AsyncSession) -> None:
         await register_agent(
             db,
             AgentRegisterRequest(
@@ -153,36 +154,26 @@ class TestLifecycle:
         assert record.lifecycle_state == "active"
 
         # And now it's allowed to evaluate
-        validated = await validate_agent_identity(
-            db, "promote-me", check_kill_switch=False
-        )
+        validated = await validate_agent_identity(db, "promote-me", check_kill_switch=False)
         assert validated.agent_id == "promote-me"
 
-    async def test_illegal_transition_rejected(
-        self, db: AsyncSession, sample_agent
-    ) -> None:
+    async def test_illegal_transition_rejected(self, db: AsyncSession, sample_agent) -> None:
         # active → draft is not allowed
         with pytest.raises(AgentLifecycleError):
             await transition_lifecycle(db, sample_agent.agent_id, "draft")
 
-    async def test_retired_is_terminal(
-        self, db: AsyncSession, sample_agent
-    ) -> None:
+    async def test_retired_is_terminal(self, db: AsyncSession, sample_agent) -> None:
         await transition_lifecycle(db, sample_agent.agent_id, "retired")
         with pytest.raises(AgentLifecycleError):
             await transition_lifecycle(db, sample_agent.agent_id, "active")
 
-    async def test_deregister_sets_retired_state(
-        self, db: AsyncSession, sample_agent
-    ) -> None:
+    async def test_deregister_sets_retired_state(self, db: AsyncSession, sample_agent) -> None:
         await deregister_agent(db, sample_agent.agent_id)
         record = await get_agent(db, sample_agent.agent_id)
         assert record.lifecycle_state == "retired"
         assert record.is_active is False
 
-    async def test_deprecated_agent_still_evaluates(
-        self, db: AsyncSession, sample_agent
-    ) -> None:
+    async def test_deprecated_agent_still_evaluates(self, db: AsyncSession, sample_agent) -> None:
         await transition_lifecycle(db, sample_agent.agent_id, "deprecated")
         validated = await validate_agent_identity(
             db, sample_agent.agent_id, check_kill_switch=False
@@ -198,20 +189,16 @@ class TestHeartbeat:
         assert record.health_status == "healthy"
         assert record.last_heartbeat_at is not None
 
-    async def test_retired_agent_rejects_heartbeat(
-        self, db: AsyncSession, sample_agent
-    ) -> None:
+    async def test_retired_agent_rejects_heartbeat(self, db: AsyncSession, sample_agent) -> None:
         await deregister_agent(db, sample_agent.agent_id)
         with pytest.raises(AgentLifecycleError):
             await record_heartbeat(db, sample_agent.agent_id)
 
-    async def test_sweep_downgrades_stale_agents(
-        self, db: AsyncSession, sample_agent
-    ) -> None:
+    async def test_sweep_downgrades_stale_agents(self, db: AsyncSession, sample_agent) -> None:
         # Mark as healthy with a heartbeat that's already in the past.
         await record_heartbeat(db, sample_agent.agent_id)
         record = await get_agent(db, sample_agent.agent_id)
-        record.last_heartbeat_at = datetime.now(timezone.utc) - timedelta(seconds=600)
+        record.last_heartbeat_at = datetime.now(UTC) - timedelta(seconds=600)
         await db.flush()
 
         downgraded = await sweep_stale_heartbeats(db, threshold_seconds=60)
@@ -245,9 +232,7 @@ class TestLineage:
         )
         assert child.parent_agent_id == sample_agent.agent_id
 
-    async def test_get_lineage_walks_chain(
-        self, db: AsyncSession, sample_agent
-    ) -> None:
+    async def test_get_lineage_walks_chain(self, db: AsyncSession, sample_agent) -> None:
         await register_agent(
             db,
             AgentRegisterRequest(
@@ -277,9 +262,7 @@ class TestLineage:
         _, mid_children = await get_lineage(db, "mid")
         assert [c.agent_id for c in mid_children] == ["leaf"]
 
-    async def test_cannot_attach_to_retired_parent(
-        self, db: AsyncSession, sample_agent
-    ) -> None:
+    async def test_cannot_attach_to_retired_parent(self, db: AsyncSession, sample_agent) -> None:
         await deregister_agent(db, sample_agent.agent_id)
         await db.commit()
         with pytest.raises(AgentLifecycleError):
@@ -324,9 +307,7 @@ class TestDiscovery:
         ids = {a.agent_id for a in found}
         assert ids == {"cap-a", "cap-b"}
 
-    async def test_discover_excludes_drafts_and_retired_by_default(
-        self, db: AsyncSession
-    ) -> None:
+    async def test_discover_excludes_drafts_and_retired_by_default(self, db: AsyncSession) -> None:
         await register_agent(
             db,
             AgentRegisterRequest(
@@ -352,9 +333,7 @@ class TestDiscovery:
         ids = {a.agent_id for a in found}
         assert ids == {"active-one"}
 
-    async def test_discover_by_parent(
-        self, db: AsyncSession, sample_agent
-    ) -> None:
+    async def test_discover_by_parent(self, db: AsyncSession, sample_agent) -> None:
         await register_agent(
             db,
             AgentRegisterRequest(

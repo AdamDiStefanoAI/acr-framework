@@ -33,7 +33,7 @@ dependencies = [
     "boto3>=1.35.0,<2.0.0",
 
     # Auth — JWT
-    "python-jose[cryptography]>=3.4.0,<4.0.0",
+    "PyJWT[crypto]>=2.15.1,<3.0.0",
     "passlib[bcrypt]>=1.7.4,<2.0.0",
 
     # OpenTelemetry — core (stable releases)
@@ -60,8 +60,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.3.0,<9.0.0",
-    "pytest-asyncio>=0.24.0,<1.0.0",
+    "pytest>=9.0.3,<10.0.0",
+    "pytest-asyncio>=1.3.0,<2.0.0",
     "pytest-cov>=6.0.0,<7.0.0",
     "httpx>=0.28.0,<1.0.0",      # async test client
     "fakeredis>=2.26.0,<3.0.0",

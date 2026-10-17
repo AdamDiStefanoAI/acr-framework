@@ -26,13 +26,15 @@ def build_policy_bundle(
 ) -> PolicyBundleArtifact:
     bundle_name = f"{agent_id}-v{version}.tar.gz"
     buffer = io.BytesIO()
-    with gzip.GzipFile(fileobj=buffer, mode="wb", mtime=0) as gz_buffer:
-        with tarfile.open(fileobj=gz_buffer, mode="w") as tar:
-            files = {
-                "bundle/manifest.json": json.dumps(manifest, indent=2).encode(),
-                "bundle/policy.rego": rego_policy.encode(),
-                "bundle/metadata.json": json.dumps(
-                    {
+    with (
+        gzip.GzipFile(fileobj=buffer, mode="wb", mtime=0) as gz_buffer,
+        tarfile.open(fileobj=gz_buffer, mode="w") as tar,
+    ):
+        files = {
+            "bundle/manifest.json": json.dumps(manifest, indent=2).encode(),
+            "bundle/policy.rego": rego_policy.encode(),
+            "bundle/metadata.json": json.dumps(
+                {
                     "release_id": release_id,
                     "agent_id": agent_id,
                     "version": version,
@@ -40,11 +42,11 @@ def build_policy_bundle(
                 indent=2,
             ).encode(),
         }
-            for name, payload in files.items():
-                info = tarfile.TarInfo(name=name)
-                info.size = len(payload)
-                info.mtime = 0
-                tar.addfile(info, io.BytesIO(payload))
+        for name, payload in files.items():
+            info = tarfile.TarInfo(name=name)
+            info.size = len(payload)
+            info.mtime = 0
+            tar.addfile(info, io.BytesIO(payload))
     bytes_data = buffer.getvalue()
     return PolicyBundleArtifact(
         filename=bundle_name,

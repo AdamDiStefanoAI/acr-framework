@@ -6,6 +6,7 @@ the ACR control plane's own token endpoint (POST /acr/agents/{id}/token).
 The token's `sub` claim is the agent_id; the router verifies it matches
 the agent_id in the request body.
 """
+
 from __future__ import annotations
 
 from fastapi import Depends

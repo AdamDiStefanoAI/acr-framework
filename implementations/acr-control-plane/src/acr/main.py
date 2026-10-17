@@ -1,13 +1,14 @@
 """
 ACR Control Plane — FastAPI application entrypoint.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager, suppress
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import structlog
@@ -15,7 +16,9 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from acr.auth.router import router as auth_router  # noqa: E402
 from acr.common.correlation import get_correlation_id
 from acr.common.errors import ACRError
 from acr.common.operator_auth import OperatorPrincipal, require_operator_roles
@@ -25,11 +28,10 @@ from acr.config import assert_production_secrets, effective_schema_bootstrap_mod
 from acr.db.database import background_engine, engine, get_db
 from acr.db.models import Base
 from acr.gateway.middleware import CorrelationMiddleware
-from acr.auth.router import router as auth_router  # noqa: E402
 from acr.operator_console.router import router as console_router  # noqa: E402
 from acr.operator_console.router import static_files as console_static_files  # noqa: E402
-from acr.pillar4_observability.otel import setup_otel, setup_telemetry
 from acr.pillar4_observability.evidence import build_evidence_bundle
+from acr.pillar4_observability.otel import setup_otel, setup_telemetry
 from acr.pillar4_observability.schema import LatencyBreakdown
 from acr.pillar4_observability.telemetry import build_event, persist_event
 
@@ -48,6 +50,7 @@ logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.I
 
 
 # ── App lifespan ──────────────────────────────────────────────────────────────
+
 
 async def _approval_expiry_loop() -> None:
     """Periodically expire timed-out approval requests (runs every 60 s)."""
@@ -99,7 +102,7 @@ async def _retention_loop() -> None:
     log = structlog.get_logger(__name__)
     while True:
         await asyncio.sleep(86400)  # daily
-        cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+        cutoff = datetime.now(UTC) - timedelta(days=90)
         try:
             async with _retention_session_factory() as db:
                 await db.execute(
@@ -173,13 +176,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown: cancel background tasks
     for task in (expiry_task, retention_task, heartbeat_task):
         task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
 
     # Shutdown: close OPA HTTP client pool
     from acr.pillar2_policy.engine import close_opa_client
+
     await close_opa_client()
 
     # Shutdown: close Redis and DB pools (hot-path + background)
@@ -206,6 +208,7 @@ app.add_middleware(CorrelationMiddleware)
 
 # ── Exception handlers ────────────────────────────────────────────────────────
 
+
 @app.exception_handler(ACRError)
 async def acr_error_handler(request: Request, exc: ACRError) -> JSONResponse:
     return JSONResponse(
@@ -226,11 +229,12 @@ async def generic_error_handler(request: Request, exc: Exception) -> JSONRespons
 # ── Routers ───────────────────────────────────────────────────────────────────
 
 from acr.gateway.router import router as gateway_router  # noqa: E402
-from acr.pillar1_identity.router import router as identity_router  # noqa: E402
 from acr.operator_keys.router import router as operator_keys_router  # noqa: E402
-from acr.policy_studio.router import bundle_router, router as policy_studio_router  # noqa: E402
+from acr.pillar1_identity.router import router as identity_router  # noqa: E402
 from acr.pillar5_containment.router import router as containment_router  # noqa: E402
 from acr.pillar6_authority.router import router as authority_router  # noqa: E402
+from acr.policy_studio.router import bundle_router  # noqa: E402
+from acr.policy_studio.router import router as policy_studio_router  # noqa: E402
 
 app.include_router(gateway_router)
 app.include_router(auth_router)
@@ -259,11 +263,9 @@ if settings.acr_env == "development":
     async def openapi_schema() -> JSONResponse:
         return JSONResponse(app.openapi())
 
-
     @app.get("/docs", include_in_schema=False)
     async def swagger_ui() -> Response:
         return get_swagger_ui_html(openapi_url="/openapi.json", title=f"{app.title} - Swagger UI")
-
 
     @app.get("/redoc", include_in_schema=False)
     async def redoc_ui() -> Response:
@@ -273,21 +275,25 @@ else:
 
     @app.get("/openapi.json", include_in_schema=False)
     async def openapi_schema(
-        principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin", "auditor")),
+        principal: OperatorPrincipal = Depends(
+            require_operator_roles("agent_admin", "security_admin", "auditor")
+        ),
     ) -> JSONResponse:
         return JSONResponse(app.openapi())
 
-
     @app.get("/docs", include_in_schema=False)
     async def swagger_ui(
-        principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin", "auditor")),
+        principal: OperatorPrincipal = Depends(
+            require_operator_roles("agent_admin", "security_admin", "auditor")
+        ),
     ) -> Response:
         return get_swagger_ui_html(openapi_url="/openapi.json", title=f"{app.title} - Swagger UI")
 
-
     @app.get("/redoc", include_in_schema=False)
     async def redoc_ui(
-        principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin", "auditor")),
+        principal: OperatorPrincipal = Depends(
+            require_operator_roles("agent_admin", "security_admin", "auditor")
+        ),
     ) -> Response:
         return get_redoc_html(openapi_url="/openapi.json", title=f"{app.title} - ReDoc")
 
@@ -295,6 +301,7 @@ else:
 # ── Observability endpoints ───────────────────────────────────────────────────
 
 from sqlalchemy import select  # noqa: E402
+
 from acr.db.database import async_session_factory  # noqa: E402
 from acr.db.models import TelemetryEventRecord  # noqa: E402
 
@@ -355,7 +362,9 @@ async def list_events(
     event_type: str | None = None,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("auditor", "agent_admin", "security_admin")
+    ),
 ) -> list[dict]:
     q = select(TelemetryEventRecord).order_by(TelemetryEventRecord.created_at.desc()).limit(limit)
     if agent_id:
@@ -371,7 +380,9 @@ async def list_events(
 async def get_event_chain(
     correlation_id: str,
     db: AsyncSession = Depends(get_db),
-    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("auditor", "agent_admin", "security_admin")
+    ),
 ) -> list[dict]:
     result = await db.execute(
         select(TelemetryEventRecord)
@@ -386,7 +397,9 @@ async def get_event_chain(
 async def export_evidence_bundle(
     correlation_id: str,
     db: AsyncSession = Depends(get_db),
-    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("auditor", "agent_admin", "security_admin")
+    ),
 ) -> Response:
     result = await db.execute(
         select(TelemetryEventRecord)
@@ -410,6 +423,7 @@ async def export_evidence_bundle(
 
 # ── Drift endpoints ───────────────────────────────────────────────────────────
 
+from acr.pillar1_identity.registry import get_manifest  # noqa: E402
 from acr.pillar3_drift.baseline import get_baseline_profile, reset_baseline  # noqa: E402
 from acr.pillar3_drift.detector import compute_drift_score  # noqa: E402
 from acr.pillar3_drift.governance import (  # noqa: E402
@@ -419,7 +433,6 @@ from acr.pillar3_drift.governance import (  # noqa: E402
     propose_baseline_version,
     reject_baseline_version,
 )
-from acr.pillar1_identity.registry import get_manifest  # noqa: E402
 from acr.pillar3_drift.models import (  # noqa: E402
     BaselineProposalRequest,
     BaselineReviewRequest,
@@ -430,7 +443,9 @@ from acr.pillar3_drift.models import (  # noqa: E402
 @app.get("/acr/drift/{agent_id}", tags=["Drift"])
 async def get_drift_score(
     agent_id: str,
-    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("auditor", "agent_admin", "security_admin")
+    ),
 ) -> dict:
     async with async_session_factory() as db:
         drift = await compute_drift_score(db, agent_id)
@@ -440,7 +455,9 @@ async def get_drift_score(
 @app.get("/acr/drift/{agent_id}/baseline", tags=["Drift"])
 async def get_baseline(
     agent_id: str,
-    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("auditor", "agent_admin", "security_admin")
+    ),
 ) -> dict:
     async with async_session_factory() as db:
         profile = await get_baseline_profile(db, agent_id)
@@ -468,17 +485,25 @@ async def reset_agent_baseline(
     return {"status": "baseline_reset", "agent_id": agent_id}
 
 
-@app.get("/acr/drift/{agent_id}/baseline/versions", response_model=list[BaselineVersionResponse], tags=["Drift"])
+@app.get(
+    "/acr/drift/{agent_id}/baseline/versions",
+    response_model=list[BaselineVersionResponse],
+    tags=["Drift"],
+)
 async def get_baseline_versions(
     agent_id: str,
     db: AsyncSession = Depends(get_db),
-    principal: OperatorPrincipal = Depends(require_operator_roles("auditor", "agent_admin", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("auditor", "agent_admin", "security_admin")
+    ),
 ) -> list[BaselineVersionResponse]:
     records = await list_baseline_versions(db, agent_id)
     return [BaselineVersionResponse.model_validate(record) for record in records]
 
 
-@app.post("/acr/drift/{agent_id}/baseline/propose", response_model=BaselineVersionResponse, tags=["Drift"])
+@app.post(
+    "/acr/drift/{agent_id}/baseline/propose", response_model=BaselineVersionResponse, tags=["Drift"]
+)
 async def propose_agent_baseline(
     agent_id: str,
     body: BaselineProposalRequest,
@@ -510,7 +535,11 @@ async def propose_agent_baseline(
     return BaselineVersionResponse.model_validate(record)
 
 
-@app.post("/acr/drift/{agent_id}/baseline/{baseline_version_id}/approve", response_model=BaselineVersionResponse, tags=["Drift"])
+@app.post(
+    "/acr/drift/{agent_id}/baseline/{baseline_version_id}/approve",
+    response_model=BaselineVersionResponse,
+    tags=["Drift"],
+)
 async def approve_agent_baseline(
     agent_id: str,
     baseline_version_id: str,
@@ -541,7 +570,11 @@ async def approve_agent_baseline(
     return BaselineVersionResponse.model_validate(record)
 
 
-@app.post("/acr/drift/{agent_id}/baseline/{baseline_version_id}/activate", response_model=BaselineVersionResponse, tags=["Drift"])
+@app.post(
+    "/acr/drift/{agent_id}/baseline/{baseline_version_id}/activate",
+    response_model=BaselineVersionResponse,
+    tags=["Drift"],
+)
 async def activate_agent_baseline(
     agent_id: str,
     baseline_version_id: str,
@@ -573,7 +606,11 @@ async def activate_agent_baseline(
     return BaselineVersionResponse.model_validate(record)
 
 
-@app.post("/acr/drift/{agent_id}/baseline/{baseline_version_id}/reject", response_model=BaselineVersionResponse, tags=["Drift"])
+@app.post(
+    "/acr/drift/{agent_id}/baseline/{baseline_version_id}/reject",
+    response_model=BaselineVersionResponse,
+    tags=["Drift"],
+)
 async def reject_agent_baseline(
     agent_id: str,
     baseline_version_id: str,
@@ -651,8 +688,8 @@ async def _emit_baseline_governance_event(
 # ── Metrics endpoint (Prometheus text format) ─────────────────────────────────
 
 from sqlalchemy import func as sa_func  # noqa: E402
+
 from acr.db.models import AgentRecord, ApprovalRequestRecord  # noqa: E402
-from acr.pillar4_observability.otel import get_meter  # noqa: E402
 
 
 @app.get("/acr/metrics", tags=["Observability"], response_class=PlainTextResponse)

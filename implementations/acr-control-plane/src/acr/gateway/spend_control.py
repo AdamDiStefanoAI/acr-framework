@@ -1,7 +1,8 @@
 """Shared authoritative spend-control helpers for gateway and approval execution."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from acr.common.errors import AuthoritativeSpendControlError, RuntimeControlDependencyError
@@ -12,13 +13,13 @@ _SPEND_KEY_PREFIX = "acr:spend:"
 
 
 def _hour_bucket() -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return now.strftime("%Y%m%d%H")
 
 
 def _extract_boundaries(manifest: Any) -> dict[str, Any]:
     if hasattr(manifest, "boundaries"):
-        boundaries = getattr(manifest, "boundaries")
+        boundaries = manifest.boundaries
         if hasattr(boundaries, "model_dump"):
             return boundaries.model_dump()
         if isinstance(boundaries, dict):

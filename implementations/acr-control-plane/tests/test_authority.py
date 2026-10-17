@@ -1,8 +1,10 @@
 """Pillar 6 unit tests: approval queue + HTTP router."""
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +14,6 @@ from acr.pillar6_authority.approval import (
     create_approval_request,
     deny,
     get_approval_request,
-    list_pending_approvals,
 )
 
 
@@ -71,6 +72,7 @@ class TestApprovalQueue:
 
 # ── HTTP router tests (cover pillar6_authority/router.py) ─────────────────────
 
+
 class TestApprovalRouterHTTP:
     """Call the approval endpoints through the real HTTP test client.
 
@@ -112,9 +114,7 @@ class TestApprovalRouterHTTP:
         assert resp.json()["request_id"] == request_id
         assert resp.json()["status"] == "pending"
 
-    async def test_get_approval_not_found(
-        self, async_client: AsyncClient
-    ) -> None:
+    async def test_get_approval_not_found(self, async_client: AsyncClient) -> None:
         resp = await async_client.get("/acr/approvals/apr-does-not-exist")
         assert resp.status_code == 404
 
@@ -135,7 +135,11 @@ class TestApprovalRouterHTTP:
     ) -> None:
         request_id = await self._seed_approval(db, sample_agent)
         with (
-            patch.object(__import__("acr.pillar6_authority.router", fromlist=["settings"]).settings, "execute_allowed_actions", True),
+            patch.object(
+                __import__("acr.pillar6_authority.router", fromlist=["settings"]).settings,
+                "execute_allowed_actions",
+                True,
+            ),
             patch(
                 "acr.pillar6_authority.approval.execute_action",
                 new_callable=AsyncMock,

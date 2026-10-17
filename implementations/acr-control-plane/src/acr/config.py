@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -150,28 +150,35 @@ def assert_production_secrets() -> None:
             f"'{settings.acr_env}'. Set a strong random secret before deploying."
         )
 
-    if settings.audit_signing_secret in _WEAK_KEYS or len(settings.audit_signing_secret.encode()) < _MIN_KEY_BYTES:
+    if (
+        settings.audit_signing_secret in _WEAK_KEYS
+        or len(settings.audit_signing_secret.encode()) < _MIN_KEY_BYTES
+    ):
         raise RuntimeError(
             "AUDIT_SIGNING_SECRET must be set to a strong value before deploying "
             "outside development/test."
         )
 
-    if settings.execute_allowed_actions and len(settings.executor_hmac_secret.encode()) < _MIN_KEY_BYTES:
+    if (
+        settings.execute_allowed_actions
+        and len(settings.executor_hmac_secret.encode()) < _MIN_KEY_BYTES
+    ):
         raise RuntimeError(
             "EXECUTOR_HMAC_SECRET must be set to a strong value before enabling "
             "EXECUTE_ALLOWED_ACTIONS outside development/test."
         )
 
-    if settings.executor_credential_secret and len(settings.executor_credential_secret.encode()) < _MIN_KEY_BYTES:
+    if (
+        settings.executor_credential_secret
+        and len(settings.executor_credential_secret.encode()) < _MIN_KEY_BYTES
+    ):
         raise RuntimeError(
             "EXECUTOR_CREDENTIAL_SECRET must be set to a strong value when brokered "
             "downstream credentials are enabled."
         )
 
     if not settings.operator_api_keys_json:
-        raise RuntimeError(
-            "OPERATOR_API_KEYS_JSON must be set in non-development environments."
-        )
+        raise RuntimeError("OPERATOR_API_KEYS_JSON must be set in non-development environments.")
 
     if not settings.service_operator_api_key:
         raise RuntimeError(
@@ -180,7 +187,10 @@ def assert_production_secrets() -> None:
         )
 
     if settings.oidc_enabled:
-        if settings.operator_session_secret in _WEAK_KEYS or len(settings.operator_session_secret.encode()) < _MIN_KEY_BYTES:
+        if (
+            settings.operator_session_secret in _WEAK_KEYS
+            or len(settings.operator_session_secret.encode()) < _MIN_KEY_BYTES
+        ):
             raise RuntimeError(
                 "OPERATOR_SESSION_SECRET is too weak for OIDC-enabled environments. "
                 f"Supply a randomly-generated value of at least {_MIN_KEY_BYTES} bytes."
@@ -196,8 +206,7 @@ def assert_production_secrets() -> None:
         missing = sorted(name for name, value in required.items() if not value)
         if missing:
             raise RuntimeError(
-                "OIDC is enabled but required settings are missing: "
-                + ", ".join(missing)
+                "OIDC is enabled but required settings are missing: " + ", ".join(missing)
             )
 
 

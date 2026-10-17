@@ -7,6 +7,7 @@ allow/deny. It does not actually proxy HTTP traffic to downstream services in v1
 This module provides the interface used by the router so it can be wired to a
 real proxy in a future version.
 """
+
 from __future__ import annotations
 
 import structlog

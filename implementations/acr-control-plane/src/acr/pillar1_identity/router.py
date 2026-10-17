@@ -1,12 +1,13 @@
 """Pillar 1: Agent registry API endpoints."""
+
 from __future__ import annotations
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from acr.common.redis_client import get_redis_or_none
 from acr.common.operator_auth import OperatorPrincipal, require_operator_roles
+from acr.common.redis_client import get_redis_or_none
 from acr.db.database import get_db
 from acr.pillar1_identity import registry
 from acr.pillar1_identity.models import (
@@ -78,6 +79,7 @@ def _to_lineage_node(record) -> AgentLineageNode:
 # NOTE: discovery is registered BEFORE the parameterised /{agent_id} routes so
 # that "/discover" is not interpreted as a literal agent_id by FastAPI's router.
 
+
 @router.get("/discover", response_model=list[AgentResponse])
 async def discover_agents(
     capability: str | None = Query(
@@ -109,6 +111,7 @@ async def discover_agents(
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
+
 @router.post("", response_model=AgentResponse, status_code=201)
 async def register_agent(
     req: AgentRegisterRequest,
@@ -123,7 +126,9 @@ async def register_agent(
 @router.get("", response_model=list[AgentResponse])
 async def list_agents(
     db: AsyncSession = Depends(get_db),
-    principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "auditor", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("agent_admin", "auditor", "security_admin")
+    ),
 ) -> list[AgentResponse]:
     records = await registry.list_agents(db)
     return [AgentResponse.model_validate(r) for r in records]
@@ -133,7 +138,9 @@ async def list_agents(
 async def get_agent(
     agent_id: str,
     db: AsyncSession = Depends(get_db),
-    principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "auditor", "security_admin")),
+    principal: OperatorPrincipal = Depends(
+        require_operator_roles("agent_admin", "auditor", "security_admin")
+    ),
 ) -> AgentResponse:
     record = await registry.get_agent(db, agent_id)
     return AgentResponse.model_validate(record)
@@ -161,14 +168,13 @@ async def deregister_agent(
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
+
 @router.post("/{agent_id}/lifecycle", response_model=AgentResponse)
 async def transition_lifecycle(
     agent_id: str,
     req: LifecycleTransitionRequest,
     db: AsyncSession = Depends(get_db),
-    principal: OperatorPrincipal = Depends(
-        require_operator_roles("agent_admin", "security_admin")
-    ),
+    principal: OperatorPrincipal = Depends(require_operator_roles("agent_admin", "security_admin")),
 ) -> AgentResponse:
     """Move an agent into a new lifecycle state (draft/active/deprecated/retired)."""
     record = await registry.transition_lifecycle(db, agent_id, req.target_state)
@@ -183,6 +189,7 @@ async def transition_lifecycle(
 
 
 # ── Heartbeat ─────────────────────────────────────────────────────────────────
+
 
 @router.post("/{agent_id}/heartbeat", response_model=AgentResponse)
 async def heartbeat(
@@ -199,6 +206,7 @@ async def heartbeat(
 
 
 # ── Lineage ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{agent_id}/lineage", response_model=AgentLineageResponse)
 async def get_lineage(
@@ -218,6 +226,7 @@ async def get_lineage(
 
 
 # ── Token issuance ────────────────────────────────────────────────────────────
+
 
 @router.post("/{agent_id}/token", response_model=TokenResponse)
 async def issue_agent_token(

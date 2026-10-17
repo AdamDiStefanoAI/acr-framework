@@ -1,17 +1,18 @@
 """Test fixtures: in-memory DB, mock OPA, mock kill switch."""
+
 from __future__ import annotations
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, patch
 
 import pytest_asyncio
 from fastapi import Request as FastAPIRequest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from acr.db.database import Base, get_db
 from acr.common.operator_auth import OperatorPrincipal, get_operator_principal
+from acr.db.database import Base, get_db
 from acr.gateway.auth import require_agent_token
 from acr.main import app
 from acr.pillar1_identity.models import AgentBoundaries, AgentRegisterRequest
@@ -99,8 +100,10 @@ async def async_client(test_engine) -> AsyncGenerator[AsyncClient, None]:
 
 # ── Sample agent fixture ───────────────────────────────────────────────────────
 
+
 def _make_allow_result():
     from acr.pillar2_policy.models import PolicyDecision, PolicyEvaluationResult
+
     return PolicyEvaluationResult(
         final_decision="allow",
         decisions=[PolicyDecision(policy_id="acr-allow", decision="allow")],

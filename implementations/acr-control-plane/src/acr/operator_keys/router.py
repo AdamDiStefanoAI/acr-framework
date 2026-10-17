@@ -5,12 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from acr.common.operator_auth import OperatorPrincipal, require_operator_roles
 from acr.db.database import get_db
+from acr.operator_keys import service
 from acr.operator_keys.models import (
     OperatorKeyCreateRequest,
     OperatorKeyCreateResponse,
     OperatorKeyResponse,
 )
-from acr.operator_keys import service
 
 router = APIRouter(prefix="/acr/operator-keys", tags=["Operator Keys"])
 
@@ -39,7 +39,9 @@ async def create_key(
         req=body,
         created_by=principal.subject,
     )
-    return OperatorKeyCreateResponse(api_key=api_key, **OperatorKeyResponse.model_validate(record).model_dump())
+    return OperatorKeyCreateResponse(
+        api_key=api_key, **OperatorKeyResponse.model_validate(record).model_dump()
+    )
 
 
 @router.post("/{key_id}/revoke", response_model=OperatorKeyResponse)
@@ -58,5 +60,9 @@ async def rotate_key(
     db: AsyncSession = Depends(get_db),
     principal: OperatorPrincipal = Depends(require_operator_roles("security_admin")),
 ) -> OperatorKeyCreateResponse:
-    record, api_key = await service.rotate_operator_key(db, key_id=key_id, rotated_by=principal.subject)
-    return OperatorKeyCreateResponse(api_key=api_key, **OperatorKeyResponse.model_validate(record).model_dump())
+    record, api_key = await service.rotate_operator_key(
+        db, key_id=key_id, rotated_by=principal.subject
+    )
+    return OperatorKeyCreateResponse(
+        api_key=api_key, **OperatorKeyResponse.model_validate(record).model_dump()
+    )

@@ -11,11 +11,10 @@ Changes:
   - approval_requests: add index on correlation_id (present in ORM, missing from 0001)
   - drift_metrics: add composite index (agent_id, created_at) for drift detector queries
 """
+
 from __future__ import annotations
 
 from alembic import op
-import sqlalchemy as sa
-
 
 revision = "0002"
 down_revision = "0001"

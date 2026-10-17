@@ -1,8 +1,9 @@
 """Gateway end-to-end tests."""
+
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
 from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, patch
 
 from httpx import AsyncClient
 
@@ -13,8 +14,15 @@ class TestGatewayEvaluate:
             "/acr/evaluate",
             json={
                 "agent_id": sample_agent.agent_id,
-                "action": {"tool_name": "query_customer_db", "parameters": {"customer_id": "C-001"}},
-                "context": {"session_id": "sess-abc", "actions_this_minute": 1, "hourly_spend_usd": 0.10},
+                "action": {
+                    "tool_name": "query_customer_db",
+                    "parameters": {"customer_id": "C-001"},
+                },
+                "context": {
+                    "session_id": "sess-abc",
+                    "actions_this_minute": 1,
+                    "hourly_spend_usd": 0.10,
+                },
             },
         )
         assert resp.status_code == 200
@@ -22,12 +30,17 @@ class TestGatewayEvaluate:
         assert data["decision"] == "allow"
         assert "correlation_id" in data
 
-    async def test_allow_registered_agent_with_intent_metadata(self, async_client: AsyncClient, sample_agent) -> None:
+    async def test_allow_registered_agent_with_intent_metadata(
+        self, async_client: AsyncClient, sample_agent
+    ) -> None:
         resp = await async_client.post(
             "/acr/evaluate",
             json={
                 "agent_id": sample_agent.agent_id,
-                "action": {"tool_name": "query_customer_db", "parameters": {"customer_id": "C-001"}},
+                "action": {
+                    "tool_name": "query_customer_db",
+                    "parameters": {"customer_id": "C-001"},
+                },
                 "context": {"session_id": "sess-abc"},
                 "intent": {
                     "goal": "Retrieve customer details for a support case",
@@ -66,7 +79,9 @@ class TestGatewayEvaluate:
         assert resp.status_code == 403
         assert resp.json()["error_code"] == "AGENT_KILLED"
 
-    async def test_killswitch_unavailable_fails_secure(self, async_client: AsyncClient, sample_agent) -> None:
+    async def test_killswitch_unavailable_fails_secure(
+        self, async_client: AsyncClient, sample_agent
+    ) -> None:
         from acr.common.errors import KillSwitchError
 
         with patch(
@@ -92,13 +107,21 @@ class TestGatewayEvaluate:
 
         escalate_result = PolicyEvaluationResult(
             final_decision="escalate",
-            decisions=[PolicyDecision(policy_id="acr-escalate", decision="escalate", reason="Needs approval")],
+            decisions=[
+                PolicyDecision(
+                    policy_id="acr-escalate", decision="escalate", reason="Needs approval"
+                )
+            ],
             reason="Refund >$100 requires human approval",
             approval_queue="finance-approvals",
             sla_minutes=240,
             latency_ms=10,
         )
-        with patch("acr.gateway.router.evaluate_policy", new_callable=AsyncMock, return_value=escalate_result):
+        with patch(
+            "acr.gateway.router.evaluate_policy",
+            new_callable=AsyncMock,
+            return_value=escalate_result,
+        ):
             resp = await async_client.post(
                 "/acr/evaluate",
                 json={
@@ -116,9 +139,15 @@ class TestGatewayEvaluate:
         assert approval_resp.status_code == 200
         assert approval_resp.json()["status"] == "pending"
 
-    async def test_allow_executes_downstream_when_enabled(self, async_client: AsyncClient, sample_agent) -> None:
+    async def test_allow_executes_downstream_when_enabled(
+        self, async_client: AsyncClient, sample_agent
+    ) -> None:
         with (
-            patch.object(__import__("acr.gateway.router", fromlist=["settings"]).settings, "execute_allowed_actions", True),
+            patch.object(
+                __import__("acr.gateway.router", fromlist=["settings"]).settings,
+                "execute_allowed_actions",
+                True,
+            ),
             patch(
                 "acr.gateway.router.execute_action",
                 new_callable=AsyncMock,
@@ -129,7 +158,10 @@ class TestGatewayEvaluate:
                 "/acr/evaluate",
                 json={
                     "agent_id": sample_agent.agent_id,
-                    "action": {"tool_name": "query_customer_db", "parameters": {"customer_id": "C-001"}},
+                    "action": {
+                        "tool_name": "query_customer_db",
+                        "parameters": {"customer_id": "C-001"},
+                    },
                     "context": {},
                 },
             )
@@ -137,7 +169,9 @@ class TestGatewayEvaluate:
         assert resp.status_code == 200
         assert resp.json()["execution_result"]["status"] == "executed"
 
-    async def test_policy_engine_down_fails_secure(self, async_client: AsyncClient, sample_agent) -> None:
+    async def test_policy_engine_down_fails_secure(
+        self, async_client: AsyncClient, sample_agent
+    ) -> None:
         from acr.common.errors import PolicyEngineError
 
         with patch(
@@ -216,7 +250,9 @@ class TestHealthEndpoint:
             "checks": {"database": "ok", "redis": "error", "opa": "error"},
         }
 
-    async def test_openapi_marks_operator_routes_as_protected(self, async_client: AsyncClient) -> None:
+    async def test_openapi_marks_operator_routes_as_protected(
+        self, async_client: AsyncClient
+    ) -> None:
         resp = await async_client.get("/openapi.json")
         assert resp.status_code == 200
 
@@ -281,7 +317,9 @@ class TestAgentRegistryAPI:
         assert second.status_code == 409
         assert second.json()["error_code"] == "AGENT_ALREADY_EXISTS"
 
-    async def test_deregistered_agent_cannot_issue_token(self, async_client: AsyncClient, sample_agent) -> None:
+    async def test_deregistered_agent_cannot_issue_token(
+        self, async_client: AsyncClient, sample_agent
+    ) -> None:
         delete_resp = await async_client.delete(f"/acr/agents/{sample_agent.agent_id}")
         assert delete_resp.status_code == 204
 

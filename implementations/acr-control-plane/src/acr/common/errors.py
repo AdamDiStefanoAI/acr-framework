@@ -15,6 +15,7 @@ class ACRError(Exception):
 
 # ── Identity / Auth ───────────────────────────────────────────────────────────
 
+
 class AgentNotFoundError(ACRError):
     status_code = 404
     error_code = "AGENT_NOT_FOUND"
@@ -74,6 +75,7 @@ class AgentLifecycleError(ACRError):
 
 # ── Policy ────────────────────────────────────────────────────────────────────
 
+
 class PolicyDeniedError(ACRError):
     status_code = 403
     error_code = "POLICY_DENIED"
@@ -96,6 +98,7 @@ class AuthoritativeSpendControlError(ACRError):
 
 # ── Approval ──────────────────────────────────────────────────────────────────
 
+
 class ApprovalPendingError(ACRError):
     status_code = 202
     error_code = "APPROVAL_PENDING"
@@ -117,6 +120,7 @@ class ApprovalTimeoutError(ACRError):
 
 
 # ── Containment ───────────────────────────────────────────────────────────────
+
 
 class KillSwitchError(ACRError):
     status_code = 503
@@ -159,6 +163,7 @@ class ContainmentError(ACRError):
 
 
 # ── Drift ─────────────────────────────────────────────────────────────────────
+
 
 class BaselineNotFoundError(ACRError):
     status_code = 404

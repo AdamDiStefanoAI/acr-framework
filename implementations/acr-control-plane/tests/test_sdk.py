@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import cast
 
 import httpx
@@ -21,7 +21,7 @@ from acr.sdk import (
 
 
 def _agent_response_body(agent_id: str) -> dict:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     return {
         "agent_id": agent_id,
         "owner": "support@example.com",

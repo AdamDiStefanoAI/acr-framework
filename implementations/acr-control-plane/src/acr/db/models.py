@@ -1,4 +1,5 @@
 """SQLAlchemy ORM models for ACR control plane."""
+
 from __future__ import annotations
 
 import uuid
@@ -22,8 +23,8 @@ from sqlalchemy.sql import func
 
 from acr.db.database import Base
 
-
 # ── Agents ────────────────────────────────────────────────────────────────────
+
 
 class AgentRecord(Base):
     __tablename__ = "agents"
@@ -66,14 +67,10 @@ class AgentRecord(Base):
     # Lifecycle state: draft → active → deprecated → retired.
     # `is_active` is preserved for backwards compatibility and kept in sync:
     # is_active==False iff lifecycle_state=='retired'.
-    lifecycle_state: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="active"
-    )
+    lifecycle_state: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
     # Health observability. Updated by heartbeat endpoint and the periodic
     # health sweep loop in main.py.
-    health_status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="unknown"
-    )
+    health_status: Mapped[str] = mapped_column(String(16), nullable=False, default="unknown")
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -93,6 +90,7 @@ class AgentRecord(Base):
 
 # ── Policy decisions ─────────────────────────────────────────────────────────
 
+
 class PolicyDecisionRecord(Base):
     __tablename__ = "policy_decisions"
     __table_args__ = (
@@ -108,7 +106,9 @@ class PolicyDecisionRecord(Base):
         String(128), ForeignKey("agents.agent_id", ondelete="CASCADE"), nullable=False, index=True
     )
     policy_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    decision: Mapped[str] = mapped_column(String(16), nullable=False)  # allow | deny | modify | escalate
+    decision: Mapped[str] = mapped_column(
+        String(16), nullable=False
+    )  # allow | deny | modify | escalate
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     tool_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -119,6 +119,7 @@ class PolicyDecisionRecord(Base):
 
 # ── Telemetry events ──────────────────────────────────────────────────────────
 
+
 class TelemetryEventRecord(Base):
     __tablename__ = "telemetry_events"
 
@@ -128,10 +129,13 @@ class TelemetryEventRecord(Base):
     event_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     agent_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
 
 
 # ── Approval requests ─────────────────────────────────────────────────────────
+
 
 class ApprovalRequestRecord(Base):
     __tablename__ = "approval_requests"
@@ -161,19 +165,24 @@ class ApprovalRequestRecord(Base):
     risk_tier: Mapped[str] = mapped_column(String(16), nullable=False, default="high")
     approval_queue: Mapped[str] = mapped_column(String(128), nullable=False, default="default")
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending", index=True)
-    decision: Mapped[str | None] = mapped_column(String(16), nullable=True)  # approved | denied | overridden
+    decision: Mapped[str | None] = mapped_column(
+        String(16), nullable=True
+    )  # approved | denied | overridden
     decided_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
     decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     sla_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=240)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     execution_result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
 
     agent_ref: Mapped[AgentRecord] = relationship(back_populates="approval_requests")
 
 
 # ── Drift baselines ───────────────────────────────────────────────────────────
+
 
 class DriftBaselineRecord(Base):
     __tablename__ = "drift_baselines"
@@ -182,13 +191,16 @@ class DriftBaselineRecord(Base):
     agent_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     baseline_data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     sample_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    collection_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    collection_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     last_updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
 
 # ── Drift baseline versions (governed snapshots) ─────────────────────────────
+
 
 class DriftBaselineVersionRecord(Base):
     __tablename__ = "drift_baseline_versions"
@@ -201,7 +213,9 @@ class DriftBaselineVersionRecord(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
-    baseline_version_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    baseline_version_id: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
     agent_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     baseline_data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     sample_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -215,10 +229,13 @@ class DriftBaselineVersionRecord(Base):
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     rejected_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
 
 
 # ── Drift metrics (raw samples) ───────────────────────────────────────────────
+
 
 class DriftMetricRecord(Base):
     __tablename__ = "drift_metrics"
@@ -236,10 +253,13 @@ class DriftMetricRecord(Base):
     action_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     policy_denied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
 
 
 # ── Containment actions ───────────────────────────────────────────────────────
+
 
 class ContainmentActionRecord(Base):
     __tablename__ = "containment_actions"
@@ -252,16 +272,21 @@ class ContainmentActionRecord(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     agent_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    action_type: Mapped[str] = mapped_column(String(32), nullable=False)  # kill | restore | throttle | restrict | isolate
+    action_type: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )  # kill | restore | throttle | restrict | isolate
     tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     drift_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     operator_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
     correlation_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
 
 
 # ── Operator credentials ─────────────────────────────────────────────────────
+
 
 class OperatorCredentialRecord(Base):
     __tablename__ = "operator_credentials"
@@ -277,13 +302,16 @@ class OperatorCredentialRecord(Base):
     revoked_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
 
 # ── Policy drafts ────────────────────────────────────────────────────────────
+
 
 class PolicyDraftRecord(Base):
     __tablename__ = "policy_drafts"
@@ -298,13 +326,16 @@ class PolicyDraftRecord(Base):
     wizard_inputs: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
 
 # ── Policy releases ──────────────────────────────────────────────────────────
+
 
 class PolicyReleaseRecord(Base):
     __tablename__ = "policy_releases"
@@ -328,11 +359,15 @@ class PolicyReleaseRecord(Base):
     artifact_uri: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     artifact_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     publish_backend: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    activation_status: Mapped[str] = mapped_column(String(16), nullable=False, default="inactive", index=True)
+    activation_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="inactive", index=True
+    )
     active_bundle_uri: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     activated_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     published_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
     rollback_from_release_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
