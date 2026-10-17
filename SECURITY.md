@@ -25,4 +25,4 @@ We will acknowledge receipt within a few days and will work with you on disclosu
 
 ## Security-Related Discussions
 
-For general security questions, threat model improvements, or control design discussions, use [GitHub Discussions](https://github.com/SynergeiaLabs/acr-framework/discussions) with the appropriate topic.
+For general security questions, threat model improvements, or control design discussions, use [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-framework/issues) without disclosing unfixed vulnerabilities.

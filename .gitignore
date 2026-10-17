@@ -24,5 +24,12 @@ implementations/acr-control-plane/var/policy_bundles/
 
 # Optional: uncomment if using a doc generator
 # node_modules/
-# .venv/
-# venv/
+.venv/
+venv/
+
+# Python contributor checks
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/

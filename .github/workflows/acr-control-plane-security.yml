@@ -1,0 +1,202 @@
+name: ACR Control Plane Security
+
+on:
+  push:
+    branches: ["main", "develop"]
+    paths:
+      - "implementations/acr-control-plane/**"
+      - ".github/workflows/acr-control-plane-ci.yml"
+      - ".github/workflows/acr-control-plane-security.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "implementations/acr-control-plane/**"
+      - ".github/workflows/acr-control-plane-ci.yml"
+      - ".github/workflows/acr-control-plane-security.yml"
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+# All findings stay in job logs/workflow artifacts. No code-scanning uploads,
+# PR comments, dependency submissions, releases, or extra credentials required.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: implementations/acr-control-plane
+
+jobs:
+  secret-hygiene:
+    name: Secret hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Block dev-secret patterns in production-facing assets
+        run: python scripts/check_no_dev_secrets.py
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: python
+          build-mode: none
+          config: |
+            paths:
+              - implementations/acr-control-plane
+
+      # Python analysis does not require executing/installing project code.
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          output: implementations/acr-control-plane/codeql-results
+          upload: never
+          upload-database: false
+
+      - name: Upload CodeQL report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: acr-codeql-sarif
+          path: implementations/acr-control-plane/codeql-results/*.sarif
+          retention-days: 30
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      # The former returntocorp/semgrep-action wrapper is deprecated.
+      - name: Install Semgrep CLI
+        run: python -m pip install semgrep==1.181.0
+
+      - name: Run Semgrep
+        run: |
+          semgrep scan --config p/python --config p/dockerfile --config p/secrets \
+            --metrics off --disable-version-check --error \
+            --sarif --output semgrep-results.sarif .
+
+      - name: Upload Semgrep report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: acr-semgrep-sarif
+          path: implementations/acr-control-plane/semgrep-results.sarif
+          retention-days: 30
+
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Scan history, not just the checkout's final contents.
+          persist-credentials: false
+
+      # Use the open-source CLI, which needs no organization license or PR token.
+      # Secret detection intentionally covers the complete repository history.
+      - name: Scan repository history
+        working-directory: .
+        run: |
+          mkdir -p "$RUNNER_TEMP/gitleaks-reports"
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -v "$PWD:/repo:ro" \
+            -v "$RUNNER_TEMP/gitleaks-reports:/reports" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo --redact --report-format sarif --report-path /reports/gitleaks.sarif
+
+      - name: Upload redacted Gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: acr-gitleaks-sarif
+          path: ${{ runner.temp }}/gitleaks-reports/gitleaks.sarif
+          retention-days: 30
+
+  trivy:
+    name: Trivy filesystem scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Scan implementation
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: implementations/acr-control-plane
+          format: sarif
+          output: implementations/acr-control-plane/trivy-results.sarif
+          severity: HIGH,CRITICAL
+          # Preserve the original report-only behavior for Trivy findings.
+          exit-code: "0"
+
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: acr-trivy-sarif
+          path: implementations/acr-control-plane/trivy-results.sarif
+          retention-days: 30
+
+  sbom:
+    name: CycloneDX SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: implementations/acr-control-plane
+          format: cyclonedx-json
+          output-file: implementations/acr-control-plane/sbom.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: acr-cyclonedx-sbom
+          path: implementations/acr-control-plane/sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 30

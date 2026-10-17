@@ -9,7 +9,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0-00d4ff.svg?style=for-the-badge)](https://github.com/AdamDiStefanoAI/acr-framework/releases)
-[![Status](https://img.shields.io/badge/status-production--ready-success.svg?style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/status-reference%20implementation-blue.svg?style=for-the-badge)](implementations/acr-control-plane/README.md)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)]()
 
 [![NIST AI RMF](https://img.shields.io/badge/maps_to-NIST_AI_RMF-darkblue.svg)](docs/compliance/acr-nist-ai-rmf-mapping.md)
@@ -110,6 +110,9 @@ Doing nothing is itself a decision. ACR gives you a defensible, standards-aligne
 git clone https://github.com/AdamDiStefanoAI/acr-framework.git
 cd acr-framework/implementations/acr-control-plane
 cp .env.example .env
+# Local demo credentials only. Do not use these in production.
+export OPERATOR_API_KEYS_JSON='{"dev-operator-key":{"subject":"dev-operator","roles":["agent_admin","approver","security_admin","auditor","killswitch_operator"]}}'
+export SERVICE_OPERATOR_API_KEY=dev-operator-key
 docker compose up --build
 ```
 
@@ -306,6 +309,8 @@ acr-framework/
 
 ## Project status
 
+The control plane is a reference implementation for evaluation and contribution. Production use requires deployment-specific security review, hardening, and validation; the included examples and development credentials are for isolated local use.
+
 - ✅ Six pillars implemented and tested
 - ✅ Production-grade Kubernetes manifests
 - ✅ Automated migrations (no manual `alembic upgrade head`)
@@ -315,7 +320,7 @@ acr-framework/
 
 ## Contributing
 
-We welcome PRs, issues, and threat-model discussions. See [`CONTRIBUTING.md`](./CONTRIBUTING.md), [`GOVERNANCE.md`](./GOVERNANCE.md), and [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md). Security issues: [`SECURITY.md`](./SECURITY.md).
+Start with the [coding contribution guide](CONTRIBUTING.md#code-contributions) for setup, tests, and the repository map. Use [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-framework/issues) for questions, bugs, and design proposals. We welcome focused PRs. See [`CONTRIBUTING.md`](./CONTRIBUTING.md), [`GOVERNANCE.md`](./GOVERNANCE.md), and [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md). Security issues: [`SECURITY.md`](./SECURITY.md).
 
 ---
 
