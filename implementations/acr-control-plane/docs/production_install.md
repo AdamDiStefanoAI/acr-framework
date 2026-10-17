@@ -19,7 +19,7 @@ Use the production overlay at [deploy/k8s/overlays/production](../deploy/k8s/ove
 ## 2. Clone and install
 
 ```bash
-git clone https://github.com/AdamDiStefanoAI/acr-framework.git
+git clone https://github.com/AdamDiStefanoAI/acr-standard.git
 cd acr-framework/implementations/acr-control-plane
 pip install -e ".[dev]"
 ```

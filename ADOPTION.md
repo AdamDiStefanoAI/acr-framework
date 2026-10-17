@@ -64,7 +64,7 @@ We maintain a list of implementations (open source, commercial, and research) in
 You may use this badge in READMEs or docs to indicate ACR alignment:
 
 ```markdown
-[![ACR Aligned](https://img.shields.io/badge/ACR-Aligned-blue)](https://github.com/AdamDiStefanoAI/acr-framework)
+[![ACR Aligned](https://img.shields.io/badge/ACR-Aligned-blue)](https://github.com/AdamDiStefanoAI/acr-standard)
 ```
 
 Optional: specify level (e.g. "ACR Level 2 Aligned") in your own text; the badge links to the framework repo.
@@ -94,13 +94,13 @@ For papers, reports, and standards:
   year         = {2026},
   publisher    = {GitHub},
   journal      = {GitHub repository},
-  howpublished = {\url{https://github.com/AdamDiStefanoAI/acr-framework}},
+  howpublished = {\url{https://github.com/AdamDiStefanoAI/acr-standard}},
   version      = {1.0}
 }
 ```
 
 **Plain text:**  
-ACR Standard: Agentic Control at Runtime. DiStefano, A. (2026). https://github.com/AdamDiStefanoAI/acr-framework. Version 1.0.
+ACR Standard: Agentic Control at Runtime. DiStefano, A. (2026). https://github.com/AdamDiStefanoAI/acr-standard. Version 1.0.
 
 **STRIKE threat model:** When referencing the threat model specifically, cite "STRIKE Threat Model (ACR Standard)" and link to [docs/security/acr-strike-threat-model.md](docs/security/acr-strike-threat-model.md).
 

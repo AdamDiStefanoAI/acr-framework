@@ -18,11 +18,11 @@ The ACR Framework is primarily a **documentation and specification** repository,
 
 **How to report:**
 
-- Open a [private vulnerability report](https://github.com/AdamDiStefanoAI/acr-framework/security/advisories/new) in this repository. Reports are shared privately with the maintainers.
+- Open a [private vulnerability report](https://github.com/AdamDiStefanoAI/acr-standard/security/advisories/new) in this repository. Reports are shared privately with the maintainers.
 - Include a clear description, steps to reproduce (if applicable), and impact. Do not open a public issue for unfixed security vulnerabilities.
 
 We will acknowledge receipt within a few days and will work with you on disclosure timing. We support coordinated disclosure and will credit reporters when the issue is fixed and disclosed (unless you prefer to remain anonymous).
 
 ## Security-Related Discussions
 
-For general security questions, threat model improvements, or control design discussions, use [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-framework/issues) without disclosing unfixed vulnerabilities.
+For general security questions, threat model improvements, or control design discussions, use [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-standard/issues) without disclosing unfixed vulnerabilities.
