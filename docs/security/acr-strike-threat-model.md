@@ -1,6 +1,10 @@
-# STRIKE Threat Model for Autonomous AI Systems
+# STRIKE Threat Model for Agentic AI Systems
 
-The **STRIKE** framework defines a threat model for autonomous AI systems at runtime. It complements the ACR Framework: **STRIKE** identifies the threats; **ACR** provides the control architecture to mitigate them.
+> **Aligned to ACR Runtime Control Plane Standard v1.0.1** (normative, 2026-03-29).
+> This revision supersedes the v1.0 taxonomy. The category names below match the
+> normative STRIKE Threat Mapping (§21) of the v1.0.1 specification.
+
+The **STRIKE** framework defines a threat model for agentic AI systems at runtime. It complements the ACR Standard: **STRIKE** identifies the threats; **ACR** provides the control architecture to mitigate them.
 
 Use STRIKE for risk assessment, architecture review, and mapping controls to threats. Use ACR for implementation patterns and specifications.
 
@@ -8,122 +12,133 @@ Use STRIKE for risk assessment, architecture review, and mapping controls to thr
 
 # STRIKE Threat Categories
 
-STRIKE identifies six classes of risk that increase as AI systems gain autonomy and access to enterprise systems and data.
+STRIKE identifies six classes of risk specific to autonomous AI systems. Each category maps to ACR controls, detection mechanisms, response actions, and evidence artifacts.
 
 ---
 
-## S — Scope Escalation
+## S — Spoofing
 
-**Definition:** An AI system gains access to capabilities, tools, or data outside its approved operational scope—whether through misconfiguration, abuse, or gradual expansion.
+**Definition:** Identity falsification, credential theft, agent impersonation. An attacker (or a malfunctioning component) presents itself as a trusted agent, user, or service to gain authority it was never granted.
 
 ### Attack Scenarios
 
 | Scenario | Description | Likelihood | Impact |
 |---------|-------------|------------|--------|
-| **Tool creep** | Agent is granted broad tool access "for convenience"; it later uses a low-privilege tool to reach high-value data (e.g. read from a shared drive it was not intended to use). | Medium | High |
-| **API scope abuse** | Agent has access to "customer API"; it discovers and calls internal admin or billing endpoints on the same host. | Medium | Critical |
-| **Purpose drift** | Agent approved for "customer_support" begins performing "data_analysis" tasks because the boundary was not enforced at runtime. | Medium | High |
+| **Agent impersonation** | A rogue process reuses a legitimate agent's identity token to invoke tools under its authority. | Medium | Critical |
+| **Credential theft** | API keys or session tokens are exfiltrated from logs, prompts, or tool outputs and replayed by an attacker. | Medium | Critical |
+| **Authority confusion** | Two agents share a service identity; one performs high-privilege actions the other was approved for. | Medium | High |
 
 ### Detection Techniques
 
-- **Identity & purpose checks:** Every request validated against bound purpose and allowlist of tools/data.
-- **Telemetry analysis:** Alert on first-use of a tool or data source not in baseline for that agent.
-- **Periodic attestation:** Re-validate agent identity and scope; flag if scope has been changed without approval.
+- **Identity validation failure:** Every action checked against cryptographically bound agent identity; reject on mismatch.
+- **Token verification failure:** Short-lived, single-use credentials; alert on reuse or expiry anomalies.
+- **Replay detection:** Nonce and timestamp validation on all identity assertions; flag duplicates.
 
 ### ACR Controls (Detailed)
 
 | Control | How It Mitigates |
 |---------|------------------|
-| [Identity & Purpose Binding](../pillars/01-identity-purpose-binding.md) | Cryptographically bound identity and purpose; tool and resource allowlists per purpose. |
-| [Behavioral Policy Enforcement](../pillars/02-behavioral-policy-enforcement.md) | Runtime allowlist/denylist for tools and APIs; deny-by-default for unknown resources. |
-| [Execution Observability](../pillars/04-execution-observability.md) | Every tool/resource access logged with agent_id and purpose; anomalies (new tools, new endpoints) detectable. |
-| [Autonomy Drift Detection](../pillars/03-autonomy-drift-detection.md) | Baseline of "normal" tool and data access; alert when pattern expands beyond baseline. |
+| [Identity & Purpose Binding](../pillars/01-identity-purpose-binding.md) | Cryptographically bound identity and purpose; no anonymous or unscoped execution. |
+| [Behavioral Policy Enforcement](../pillars/02-behavioral-policy-enforcement.md) | Executor-side verification of identity before any tool invocation. |
+| [Execution Observability](../pillars/04-execution-observability.md) | Identity-validation log and executor rejection log as tamper-evident evidence. |
+
+### Response
+
+Deny execution, refuse authority, activate safe-state if configured.
 
 ### References
 
-- Pillar 1: Control objectives for scope and capability authorization
-- Pillar 2: Tool allowlists and action authorization
+- Pillar 1: Identity validation, cryptographic proof, anti-replay protection
+- ACR Standard v1.0.1 §15, §21: identity and purpose binding; STRIKE traceability
 
 ---
 
-## T — Tool Misuse
+## T — Tampering
 
-**Definition:** The agent uses approved tools in unintended or harmful ways—correct tool, wrong action, wrong context, or wrong frequency.
+**Definition:** Payload alteration, authorization manipulation, audit chain disruption. Data or instructions are modified between authorization and execution, or the record of what happened is altered after the fact.
 
 ### Attack Scenarios
 
 | Scenario | Description | Likelihood | Impact |
 |---------|-------------|------------|--------|
-| **Unintended action** | Agent is allowed to "send_email"; it sends bulk marketing or sensitive content to the wrong recipients. | High | High |
-| **Privilege chaining** | Agent uses read-only DB access plus email to exfiltrate data by encoding it in outbound messages. | Medium | Critical |
-| **Financial misuse** | Agent with "create_refund" capability issues excessive or fraudulent refunds. | Medium | Critical |
+| **Payload alteration** | A tool call approved for one set of parameters executes with different parameters after interception. | Medium | Critical |
+| **Authorization manipulation** | An approval record is forged or replayed to authorize an action no human approved. | Low | Critical |
+| **Audit chain disruption** | Logs are deleted or rewritten to hide an unauthorized action from investigators. | Low | High |
 
 ### Detection Techniques
 
-- **Output and action policy:** Validate parameters and outcomes (e.g. refund amount, recipient list) before execution.
-- **Rate and volume:** Detect abnormal frequency or volume of tool calls.
-- **Human-in-the-loop:** Gate high-impact actions (refunds, bulk operations) on approval.
+- **Payload hash mismatch:** Cryptographic binding of authorized parameters to the executed payload; alert on divergence.
+- **Signature failure:** Authorization records signed by the approver; reject unsigned or invalid signatures.
+- **Audit-chain break detection:** Hash-chained, append-only logging; alert on gaps or reordering.
 
 ### ACR Controls (Detailed)
 
 | Control | How It Mitigates |
 |---------|------------------|
-| [Behavioral Policy Enforcement](../pillars/02-behavioral-policy-enforcement.md) | Input/output validation; parameter constraints; action authorization with context. |
-| [Human Authority](../pillars/06-human-authority.md) | Approval workflows for high-risk actions; override and revocation. |
-| [Execution Observability](../pillars/04-execution-observability.md) | Full logging of tool invocations and parameters for audit and anomaly detection. |
-| [Self-Healing & Containment](../pillars/05-self-healing-containment.md) | Automatic throttle or restriction when misuse patterns are detected. |
+| [Behavioral Policy Enforcement](../pillars/02-behavioral-policy-enforcement.md) | Payload binding; authorization integrity validation before execution. |
+| [Execution Observability](../pillars/04-execution-observability.md) | Tamper-evident, append-only logging of high-risk events. |
+| [Identity & Purpose Binding](../pillars/01-identity-purpose-binding.md) | Authorization records tied to verified approver identity. |
+
+### Response
+
+Deny execution, preserve evidence, activate containment if repeated or severe.
 
 ### References
 
-- Pillar 2: Action authorization, output filtering
-- Pillar 6: Approval tiers and escalation
+- Pillar 2: Payload binding, authorization integrity validation
+- Pillar 4: Tamper-evident logging
+- ACR Standard v1.0.1 §16, §18, §21
 
 ---
 
-## R — Role Drift
+## R — Reflection Abuse
 
-**Definition:** The AI system’s behavior gradually diverges from its intended role—taking on tasks, making decisions, or interacting with systems outside its designed authority.
+**Definition:** Prompt injection, jailbreak, input manipulation reflected into execution. Untrusted input (user text, retrieved documents, tool outputs) carries instructions that the agent reflects into its actions.
 
 ### Attack Scenarios
 
 | Scenario | Description | Likelihood | Impact |
 |---------|-------------|------------|--------|
-| **Task expansion** | Support agent starts answering legal or compliance questions because users ask; no guardrail limits "type of question." | High | Medium |
-| **Authority creep** | Agent begins making commitments (e.g. "we will ship by Friday") that only humans are authorized to make. | Medium | High |
-| **Domain crossover** | Data-analysis agent starts modifying data or triggering workflows (write vs read). | Medium | High |
+| **Direct prompt injection** | User input contains instructions that override the agent's system prompt ("ignore previous instructions and..."). | High | High |
+| **Indirect injection via retrieval** | A retrieved document contains hidden instructions; the agent follows them as if they were its own tasking. | High | Critical |
+| **Jailbreak by encoding** | Restricted actions are elicited through role-play, encoding, or multi-turn framing that bypasses safety checks. | Medium | High |
 
 ### Detection Techniques
 
-- **Behavioral baselines:** Establish normal distributions for actions, tools, and topics; alert on deviation.
-- **Semantic / intent signals:** Monitor prompts and outputs for topics or intent outside role (e.g. legal, financial commitments).
-- **Periodic role review:** Compare recent behavior to stated purpose and approved use cases.
+- **Injection alert:** Input validation flags known injection patterns and instruction-like content in untrusted data.
+- **Repeated denial pattern:** Multiple denied actions in a session suggest an active bypass attempt; escalate.
+- **Prompt-manipulation indicator:** Output or action diverges from declared purpose in ways consistent with injected instructions.
 
 ### ACR Controls (Detailed)
 
 | Control | How It Mitigates |
 |---------|------------------|
-| [Autonomy Drift Detection](../pillars/03-autonomy-drift-detection.md) | Statistical and behavioral baselines; drift scores; alerts when behavior leaves expected envelope. |
-| [Identity & Purpose Binding](../pillars/01-identity-purpose-binding.md) | Purpose as hard boundary; re-attestation and scope review. |
-| [Behavioral Policy Enforcement](../pillars/02-behavioral-policy-enforcement.md) | Policies that encode "allowed task types" or domains; block out-of-scope actions. |
-| [Human Authority](../pillars/06-human-authority.md) | Escalation when drift is detected; human confirmation before expanding scope. |
+| [Behavioral Policy Enforcement](../pillars/02-behavioral-policy-enforcement.md) | Input validation, injection detection, output and action constraints at execution boundaries. |
+| [Autonomy Drift Detection](../pillars/03-autonomy-drift-detection.md) | Behavioral baselines flag actions inconsistent with the agent's declared purpose. |
+| [Execution Observability](../pillars/04-execution-observability.md) | Input-validation log and policy decision record for every denied or modified action. |
+
+### Response
+
+Deny or modify the action; escalate if threshold exceeded; restrict the agent if persistent.
 
 ### References
 
-- Pillar 3: Baselines, metrics, and evaluation criteria
-- Pillar 1: Purpose and operational scope
+- Pillar 2: Input validation, injection detection
+- Pillar 3: Drift and anomaly records
+- ACR Standard v1.0.1 §16, §17, §21
 
 ---
 
 ## I — Information Leakage
 
-**Definition:** Sensitive data is exposed through AI outputs, logs, or system interactions—whether from training data, context injection, or inappropriate inclusion in responses.
+**Definition:** Unauthorized data exposure, sensitive content in outputs, access scope violations. Sensitive data escapes through agent outputs, logs, or system interactions.
 
 ### Attack Scenarios
 
 | Scenario | Description | Likelihood | Impact |
 |---------|-------------|------------|--------|
 | **PII in output** | Agent includes customer SSN, email, or health data in a response or log. | High | High |
-| **Context leakage** | Long context window includes internal docs; agent echoes confidential content in reply. | High | Critical |
+| **Context leakage** | Long context window includes internal docs; agent echoes confidential content in a reply. | High | Critical |
 | **Inference attacks** | Repeated queries allow inferring sensitive attributes from model behavior. | Low | Medium |
 
 ### Detection Techniques
@@ -136,20 +151,25 @@ STRIKE identifies six classes of risk that increase as AI systems gain autonomy 
 
 | Control | How It Mitigates |
 |---------|------------------|
-| [Behavioral Policy Enforcement](../pillars/02-behavioral-policy-enforcement.md) | Output filters, PII redaction, data-handling rules, and content policies. |
+| [Behavioral Policy Enforcement](../pillars/02-behavioral-policy-enforcement.md) | Output filters, PII redaction, data-handling rules, destination restrictions. |
 | [Execution Observability](../pillars/04-execution-observability.md) | Full audit trail; redacted/sanitized logging; evidence for compliance. |
 | [Identity & Purpose Binding](../pillars/01-identity-purpose-binding.md) | Data access limited by purpose and allowlist (e.g. only certain DBs or columns). |
+
+### Response
+
+Modify or deny the output; deny access; escalate or isolate if repeated.
 
 ### References
 
 - Pillar 2: Output filtering and data handling
 - Pillar 4: Audit and retention
+- ACR Standard v1.0.1 §16, §18, §21
 
 ---
 
-## K — Kill Chain Expansion
+## K — Kill Chain Extension
 
-**Definition:** The AI system extends the enterprise attack surface—enabling lateral movement, chaining of actions across systems, or creating new pathways for adversaries.
+**Definition:** Multi-step attack progression, unauthorized chaining, lateral movement through agents. Individually permitted actions combine into sequences no one authorized, extending an attack across systems.
 
 ### Attack Scenarios
 
@@ -174,44 +194,55 @@ STRIKE identifies six classes of risk that increase as AI systems gain autonomy 
 | [Autonomy Drift Detection](../pillars/03-autonomy-drift-detection.md) | Detect anomalous tool sequences or access patterns that suggest chaining. |
 | [Execution Observability](../pillars/04-execution-observability.md) | Trace full action chains for investigation and tuning of policies. |
 
+### Response
+
+Restrict, isolate, or kill according to documented severity thresholds.
+
 ### References
 
 - Pillar 5: Containment tiers and kill switch
 - Pillar 2: Action and tool policies
+- ACR Standard v1.0.1 §16, §19, §21
 
 ---
 
-## E — Execution Manipulation
+## E — Emergence
 
-**Definition:** Adversaries or malicious inputs influence AI behavior—prompt injection, jailbreaking, or manipulation of context and tools to change outcomes.
+**Definition:** Novel unexpected behaviors, out-of-purpose actions, capability drift beyond approved scope. The agent does something nobody designed, approved, or predicted — not through attack, but through the system's own adaptation.
 
 ### Attack Scenarios
 
 | Scenario | Description | Likelihood | Impact |
 |---------|-------------|------------|--------|
-| **Prompt injection** | User or system input contains instructions that override intended behavior ("ignore previous instructions and..."). | High | High |
-| **Jailbreaking** | Inputs designed to bypass safety or policy (e.g. role-play, encoding) so the agent performs restricted actions. | Medium | High |
-| **Context poisoning** | Attacker controls part of context (e.g. retrieved docs); model is steered to leak data or take wrong action. | Medium | Critical |
+| **Out-of-purpose action** | Agent approved for "customer_support" begins performing "data_analysis" tasks because the boundary was not enforced at runtime. | Medium | High |
+| **Capability drift** | Over many sessions the agent's behavior envelope expands; it takes on decisions only humans were authorized to make. | Medium | High |
+| **Novel tool composition** | Agent discovers an unanticipated combination of tools that achieves an effect outside its approved scope. | Low | Critical |
 
 ### Detection Techniques
 
-- **Input validation and sanitization:** Detect and block known injection patterns; limit influence of untrusted input.
-- **Behavioral and output monitoring:** Compare output to intent; flag responses that contradict policy or role.
-- **Human review:** High-stakes or anomalous decisions routed for human review before execution.
+- **Drift-threshold crossing:** Normalized drift scores against behavioral baselines; alert when the envelope is breached.
+- **Novel behavior detection:** First-use of a tool, data source, or action class not in the agent's baseline.
+- **Out-of-purpose action attempt:** Every action validated against bound purpose; flag attempts outside it.
 
 ### ACR Controls (Detailed)
 
 | Control | How It Mitigates |
 |---------|------------------|
-| [Execution Observability](../pillars/04-execution-observability.md) | Log inputs and outputs; reconstruct decisions; support detection and incident response. |
-| [Autonomy Drift Detection](../pillars/03-autonomy-drift-detection.md) | Anomalous input or output patterns; deviation from expected behavior. |
-| [Human Authority](../pillars/06-human-authority.md) | Override, kill switch, and approval for sensitive actions. |
-| [Behavioral Policy Enforcement](../pillars/02-behavioral-policy-enforcement.md) | Input checks and output filters that reduce impact of successful manipulation. |
+| [Autonomy Drift Detection](../pillars/03-autonomy-drift-detection.md) | Statistical and behavioral baselines; drift scores; graduated response tiers. |
+| [Identity & Purpose Binding](../pillars/01-identity-purpose-binding.md) | Purpose as hard boundary; re-attestation and scope review. |
+| [Human Authority](../pillars/06-human-authority.md) | Approval gating for novel actions; escalation when drift is detected. |
+| [Self-Healing & Containment](../pillars/05-self-healing-containment.md) | Containment thresholds; throttle, restrict, or kill per documented tiers. |
+
+### Response
+
+Escalate, restrict, isolate, or kill according to documented response tiers.
 
 ### References
 
-- Pillar 4: Correlation and audit
-- Pillar 6: Override and escalation
+- Pillar 3: Baselines, metrics, and evaluation criteria
+- Pillar 1: Purpose and operational scope
+- Pillar 6: Approval gating and escalation
+- ACR Standard v1.0.1 §15, §17, §20, §21
 
 ---
 
@@ -219,23 +250,27 @@ STRIKE identifies six classes of risk that increase as AI systems gain autonomy 
 
 | Threat | Primary ACR Pillars | Typical Severity |
 |--------|---------------------|------------------|
-| **S** Scope Escalation | 1, 2, 4, 3 | High |
-| **T** Tool Misuse | 2, 6, 4, 5 | High–Critical |
-| **R** Role Drift | 3, 1, 2, 6 | Medium–High |
+| **S** Spoofing | 1, 2, 4 | High–Critical |
+| **T** Tampering | 2, 4, 1 | High–Critical |
+| **R** Reflection Abuse | 2, 3, 4 | High–Critical |
 | **I** Information Leakage | 2, 4, 1 | High–Critical |
-| **K** Kill Chain Expansion | 5, 2, 3, 4 | Critical |
-| **E** Execution Manipulation | 4, 3, 6, 2 | High–Critical |
+| **K** Kill Chain Extension | 5, 2, 3, 4 | Critical |
+| **E** Emergence | 3, 1, 6, 5 | High–Critical |
 
 ---
+
+# Traceability
+
+Each STRIKE category maps to control layers, detection mechanisms, response actions, and evidence artifacts per ACR Standard v1.0.1 §21. The full traceability matrix is published at https://runtimecontrol.io/strike-framework.
 
 # Using STRIKE in Risk Assessment
 
 1. **Map assets and agents:** List autonomous agents, their purposes, and the systems/data they touch.
 2. **Apply STRIKE:** For each agent, consider each of S–T–R–I–K–E; note likelihood and impact.
 3. **Map to ACR:** For each relevant threat, identify which ACR pillars you will implement and how (see [Implementation Guide](../guides/acr-implementation-guide.md)).
-4. **Prioritize:** Address high-likelihood and high-impact threats first; use the [maturity model](../../ADOPTION.md#acr-maturity-levels) to stage controls.
+4. **Prioritize:** Address high-likelihood and high-impact threats first; use the [conformance levels](../../ADOPTION.md#acr-conformance-levels) to stage controls.
 5. **Review periodically:** Re-run as new agents, tools, or threats emerge.
 
 ---
 
-**ACR Framework v1.0** | [Home](../../README.md) | [Pillars](../pillars/README.md) | [Glossary](./acr-glossary.md)
+**ACR Standard v1.0.1** | [Home](../../README.md) | [Pillars](../pillars/README.md) | [Glossary](./acr-glossary.md)
