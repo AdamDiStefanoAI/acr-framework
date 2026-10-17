@@ -13,17 +13,19 @@ This document explains how to adopt the ACR Framework, how to claim alignment, h
 
 ---
 
-## ACR Maturity Levels
+## ACR Conformance Levels
 
-Use these levels to stage adoption and to describe how fully a system implements ACR.
+> Aligned to ACR Runtime Control Plane Standard v1.0.1, §23 (Conformance Requirements).
+> Conformance is cumulative: each level builds on the previous one. A system claiming
+> Level 3 must satisfy all requirements from all three levels.
 
-| Level | Name | Criteria | Typical Use |
-|-------|------|----------|-------------|
-| **Level 1** | Observability & Policy | Identity binding (or equivalent), behavioral policy enforcement, execution observability with ACR-aligned telemetry. | First phase of adoption; audit trail and basic guardrails. |
-| **Level 2** | Detection & Containment | Level 1 plus autonomy drift detection and self-healing/containment (e.g. throttle, restrict, kill switch). | Reducing risk from drift and misuse. |
-| **Level 3** | Full ACR | All six pillars implemented: Identity & Purpose Binding, Behavioral Policy Enforcement, Autonomy Drift Detection, Execution Observability, Self-Healing & Containment, Human Authority. | Full runtime governance; compliance and high-risk use cases. |
+| Level | Name | Criteria |
+|-------|------|----------|
+| **Level 1** | Observability | Action and decision logging; correlation identifiers; agent identity and purpose records; audit export capability; minimum retention enforcement. |
+| **Level 2** | Enforcement | Level 1 plus mandatory pre-execution control; deny-by-default behavior; identity and purpose binding; executor-side verification; containment with kill path. |
+| **Level 3** | Full Runtime Control Plane Compliance | Levels 1–2 plus three-boundary enforcement; four-state decision model (ALLOW, DENY, MODIFY, ESCALATE); drift detection with thresholded response; STRIKE traceability matrix; quarterly containment testing. |
 
-**Claiming a level:** You may state that your system is "ACR Level 1 (or 2 or 3) aligned" if it meets the criteria above. Implementation details can vary (see [Implementation Guide](docs/guides/acr-implementation-guide.md)). We encourage documenting which pillars and patterns you use.
+**Claiming a level:** You may state that your system is "ACR Level 1 (or 2 or 3) conformant" if it meets the criteria above for the declared scope: evaluated system boundary, protected execution scope, covered agents and action classes, implementation version, and assessment date. A formal conformance statement needs all five. Implementation details can vary (see [Implementation Guide](docs/guides/acr-implementation-guide.md)). We encourage documenting which pillars and patterns you use.
 
 ---
 
@@ -42,7 +44,7 @@ We maintain a list of implementations (open source, commercial, and research) in
 1. **Open a pull request** that adds your implementation to the appropriate section (Open Source, Commercial, or Research).
 2. **Include:**
    - Name and short description
-   - Which ACR pillars you implement (and maturity level if applicable)
+   - Which ACR pillars you implement (and conformance level if applicable)
    - Deployment pattern(s): e.g. API Gateway, SDK, Sidecar, Control Plane Service
    - Link to documentation or product page
 3. **Acceptance:** Maintainers will review for relevance and accuracy. Listing does not imply endorsement of your product—only that you have stated alignment with ACR.
