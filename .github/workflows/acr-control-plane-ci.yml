@@ -85,7 +85,7 @@ jobs:
           KILLSWITCH_SECRET: "ci_killswitch_secret_not_for_production"
           ACR_ENV: "test"
         run: |
-          pytest tests/ -v \
+          python -m pytest tests/ -v \
             --ignore=tests/integration \
             --cov=src/acr \
             --cov-report=term-missing \
@@ -149,7 +149,7 @@ jobs:
           timeout 60 bash -c 'until curl --fail --silent http://localhost:8181/health; do sleep 2; done'
 
       - name: Run integration tests
-        run: pytest tests/integration/ -v --tb=short --junitxml=integration-results.xml
+        run: python -m pytest tests/integration/ -v --tb=short --junitxml=integration-results.xml
 
       - name: Upload integration test report
         if: always()

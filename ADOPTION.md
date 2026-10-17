@@ -94,7 +94,7 @@ For papers, reports, and standards:
   year         = {2026},
   publisher    = {GitHub},
   journal      = {GitHub repository},
-  howpublished = {\url{https://github.com/AdamDiStefaniAI/acr-framework}},
+  howpublished = {\url{https://github.com/AdamDiStefanoAI/acr-framework}},
   version      = {1.0}
 }
 ```
