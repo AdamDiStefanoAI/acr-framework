@@ -69,7 +69,7 @@ Participation would be via GitHub Issues, periodic syncs (e.g. monthly), and con
 
 ## Relationship to Other Organizations
 
-- ACR is an **open, community-oriented framework**, not a legal entity. It is hosted at [AdamDiStefanoAI/acr-framework](https://github.com/AdamDiStefanoAI/acr-standard).
+- ACR is an **open, community-oriented standard**, not a legal entity. It is hosted at [AdamDiStefanoAI/acr-standard](https://github.com/AdamDiStefanoAI/acr-standard).
 - **NIST, ISO, OWASP, MITRE:** ACR complements these; we map to NIST AI RMF and ISO where applicable. We do not speak for those organizations.
 - **Vendors and adopters:** Listing in the [Implementations](README.md#implementations) section does not imply endorsement. Adopters self-declare alignment (see [ADOPTION.md](ADOPTION.md)).
 

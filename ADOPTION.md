@@ -88,7 +88,7 @@ For papers, reports, and standards:
 **BibTeX:**
 
 ```bibtex
-@misc{acr-framework-2026,
+@misc{acr-standard-2026,
   author       = {DiStefano, Adam},
   title        = {ACR Standard: Agentic Control at Runtime},
   year         = {2026},

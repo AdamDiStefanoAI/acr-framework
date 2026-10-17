@@ -331,7 +331,7 @@ Start with the [coding contribution guide](CONTRIBUTING.md#code-contributions) f
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
 [![Adopt ACR](https://img.shields.io/badge/Adopt-ACR-00d4ff.svg?style=for-the-badge)](./ADOPTION.md)
-[![Star on GitHub](https://img.shields.io/github/stars/AdamDiStefanoAI/acr-framework?style=for-the-badge&logo=github)](https://github.com/AdamDiStefanoAI/acr-standard)
+[![Star on GitHub](https://img.shields.io/github/stars/AdamDiStefanoAI/acr-standard?style=for-the-badge&logo=github)](https://github.com/AdamDiStefanoAI/acr-standard)
 
 **[runtimecontrol.io/control-plane](https://runtimecontrol.io/control-plane)**
 
