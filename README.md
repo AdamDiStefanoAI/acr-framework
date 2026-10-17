@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://runtimecontrol.io/assets/ACR_1.png" alt="ACR Framework" width="780" />
+<img src="https://runtimecontrol.io/assets/ACR_1.png" alt="ACR Standard" width="780" />
 
 # **ACR Standard**
 ### ACR: Agentic Control at Runtime
@@ -8,7 +8,7 @@
 **The control plane your autonomous AI agents need before you let them touch production.**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0-00d4ff.svg?style=for-the-badge)](https://github.com/AdamDiStefanoAI/acr-standard/releases)
+[![Version](https://img.shields.io/badge/version-1.0.1-00d4ff.svg?style=for-the-badge)](https://github.com/AdamDiStefanoAI/acr-standard/releases)
 [![Status](https://img.shields.io/badge/status-reference%20implementation-blue.svg?style=for-the-badge)](implementations/acr-control-plane/README.md)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)]()
 
@@ -268,7 +268,7 @@ Full OpenAPI is served at `/docs` and `/redoc` (operator-authenticated outside d
 
 ```
 acr-framework/
-├── docs/                            ← framework spec (the "why")
+├── docs/                            ← standard spec (the "why")
 ├── implementations/
 │   └── acr-control-plane/           ← runnable reference implementation
 │       ├── src/acr/
