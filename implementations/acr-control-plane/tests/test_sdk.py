@@ -124,11 +124,14 @@ def test_guard_tool_uses_modified_parameters() -> None:
 
 
 def test_guard_tool_raises_on_deny() -> None:
+    calls: list[str] = []
+
     class _FakeSession:
         def evaluate_action(self, **kwargs):
             return EvaluateResponse(decision="deny", reason="policy blocked")
 
     def create_ticket(subject: str) -> dict:
+        calls.append(subject)
         return {"subject": subject}
 
     guarded = guard_tool(
@@ -138,6 +141,31 @@ def test_guard_tool_raises_on_deny() -> None:
 
     with pytest.raises(ACRDeniedError, match="policy blocked"):
         guarded(subject="Escalate to finance")
+
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_guard_async_tool_does_not_execute_on_deny() -> None:
+    calls: list[str] = []
+
+    class _FakeAsyncSession:
+        async def evaluate_action(self, **kwargs):
+            return EvaluateResponse(decision="deny", reason="policy blocked")
+
+    async def create_ticket(subject: str) -> dict:
+        calls.append(subject)
+        return {"subject": subject}
+
+    guarded = guard_async_tool(
+        create_ticket,
+        session=cast(AsyncACRAgentSession, _FakeAsyncSession()),
+    )
+
+    with pytest.raises(ACRDeniedError, match="policy blocked"):
+        await guarded(subject="Escalate to finance")
+
+    assert calls == []
 
 
 @pytest.mark.asyncio
