@@ -108,7 +108,7 @@ Doing nothing is itself a decision. ACR gives you a defensible, standards-aligne
 
 ```bash
 git clone https://github.com/AdamDiStefanoAI/acr-standard.git
-cd acr-framework/implementations/acr-control-plane
+cd acr-standard/implementations/acr-control-plane
 cp .env.example .env
 # Local demo credentials only. Do not use these in production.
 export OPERATOR_API_KEYS_JSON='{"dev-operator-key":{"subject":"dev-operator","roles":["agent_admin","approver","security_admin","auditor","killswitch_operator"]}}'
@@ -267,7 +267,7 @@ Full OpenAPI is served at `/docs` and `/redoc` (operator-authenticated outside d
 ## Repo layout
 
 ```
-acr-framework/
+acr-standard/
 ├── docs/                            ← standard spec (the "why")
 ├── implementations/
 │   └── acr-control-plane/           ← runnable reference implementation
