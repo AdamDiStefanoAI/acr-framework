@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import cast
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -138,6 +139,32 @@ def test_guard_tool_raises_on_deny() -> None:
 
     with pytest.raises(ACRDeniedError, match="policy blocked"):
         guarded(subject="Escalate to finance")
+
+
+@pytest.mark.parametrize("status_code", [200, 403])
+def test_guard_tool_denies_before_executing_local_tool(status_code: int) -> None:
+    tool = Mock(return_value={"status": "executed"})
+
+    def create_ticket(subject: str) -> dict:
+        return tool(subject=subject)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/acr/evaluate"
+        assert request.headers["Authorization"] == "Bearer agent-token"
+        tool.assert_not_called()
+        return httpx.Response(status_code, json={"decision": "deny", "reason": "policy blocked"})
+
+    with ACRClient(base_url="http://test", transport=httpx.MockTransport(handler)) as client:
+        guarded = guard_tool(
+            create_ticket,
+            session=client.create_agent_session("support-bot", "agent-token"),
+        )
+
+        with pytest.raises(ACRDeniedError, match="policy blocked"):
+            guarded(subject="Escalate to finance")
+
+    tool.assert_not_called()
 
 
 @pytest.mark.asyncio
