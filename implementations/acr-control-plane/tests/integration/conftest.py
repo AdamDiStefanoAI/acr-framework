@@ -30,7 +30,9 @@ os.environ["STRICT_DEPENDENCY_STARTUP"] = "false"
 os.environ["EXECUTE_ALLOWED_ACTIONS"] = "false"
 
 
-@pytest_asyncio.fixture(scope="session")
+# asyncpg pools and the app's cached async clients must stay on the same loop
+# as the integration tests. Function-scoped fixtures still clean up per test.
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def integration_engine():
     """Create a real async Postgres engine for the test suite."""
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
@@ -48,7 +50,7 @@ async def integration_engine():
     await engine.dispose()
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function", loop_scope="session")
 async def db(integration_engine) -> AsyncSession:
     """Provide a real Postgres session for each test, rolled back after."""
     factory = async_sessionmaker(
@@ -59,7 +61,7 @@ async def db(integration_engine) -> AsyncSession:
         await session.rollback()
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function", loop_scope="session")
 async def redis_client():
     """Provide a real Redis connection."""
     import redis.asyncio as aioredis
@@ -70,7 +72,7 @@ async def redis_client():
     await r.aclose()
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function", loop_scope="session")
 async def async_client(integration_engine) -> AsyncClient:
     """HTTP test client wired to the real app with real dependencies."""
     from acr.db.database import get_db

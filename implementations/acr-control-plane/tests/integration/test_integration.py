@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.integration.conftest import TEST_OPA_URL, TEST_REDIS_URL
 
-pytestmark = pytest.mark.asyncio
+pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
