@@ -11,10 +11,14 @@ That means a caller cannot simply replay the executor URL directly with a modifi
 
 ## Run
 
-From the project root:
+From `implementations/acr-control-plane/`, with the Python environment active:
 
 ```bash
-uvicorn examples.protected_executor.app:app --host 127.0.0.1 --port 8010
+# Copy once, then replace both placeholders with distinct random secrets.
+cp examples/protected_executor/.env.example examples/protected_executor/.env
+# Edit examples/protected_executor/.env before starting either service.
+uvicorn examples.protected_executor.app:app --host 127.0.0.1 --port 8010 \
+  --env-file examples/protected_executor/.env
 ```
 
 Health check:
@@ -31,11 +35,20 @@ curl http://127.0.0.1:8010/metadata
 
 ## Connect It To The Gateway
 
-Set the gateway to execute allowed actions and point tools at the protected executor:
+Configure **both** `EXECUTOR_HMAC_SECRET` and `EXECUTOR_CREDENTIAL_SECRET` with
+exactly the same respective values in the gateway and executor processes. Use
+two distinct, strong random secrets (at least 32 bytes each). Do not put them in
+source control or give them to the agent. The first signs execution authorization;
+the second signs brokered downstream credentials. Setting only the first is not
+sufficient. The executor's `--env-file` loads its configuration at startup; exports
+in another terminal do not update a running process.
+
+In the gateway's environment, set these values before starting/restarting it:
 
 ```bash
 export EXECUTE_ALLOWED_ACTIONS=true
-export EXECUTOR_HMAC_SECRET=replace-with-a-strong-random-secret
+export EXECUTOR_HMAC_SECRET='<same-value-as-executor-HMAC-secret>'
+export EXECUTOR_CREDENTIAL_SECRET='<same-value-as-executor-credential-secret>'
 export TOOL_EXECUTOR_MAP_JSON='{
   "query_customer_db":"http://127.0.0.1:8010/execute",
   "send_email":"http://127.0.0.1:8010/execute",
@@ -44,7 +57,9 @@ export TOOL_EXECUTOR_MAP_JSON='{
 }'
 ```
 
-Now the gateway can call the executor, but direct callers without a valid execution token should be rejected.
+Now the gateway can call the executor. Missing or invalid credentials and payload
+tampering return HTTP 401 with `INVALID_EXECUTION_AUTHORIZATION`, without running
+the tool. Valid credentials for an unexposed tool return HTTP 403.
 
 ## What This Proves
 
@@ -82,7 +97,7 @@ Example container run:
 
 ```bash
 docker build -f examples/protected_executor/Dockerfile -t acr-protected-executor .
-docker run --rm -p 8010:8010 --env-file examples/protected_executor/.env.example acr-protected-executor
+docker run --rm -p 8010:8010 --env-file examples/protected_executor/.env acr-protected-executor
 ```
 
 ## Important Limitation
