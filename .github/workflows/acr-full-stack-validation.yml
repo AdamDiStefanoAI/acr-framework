@@ -1,0 +1,69 @@
+name: ACR disposable full-stack validation
+on:
+  pull_request:
+    branches: [main, example/runnable-langgraph-guard]
+    paths:
+      - 'implementations/acr-control-plane/**'
+      - '.github/workflows/acr-full-stack-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: acr-full-stack-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  full-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: implementations/acr-control-plane
+    env:
+      COMPOSE_PROJECT_NAME: acr-fullstack-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_FILE: docker-compose.yml:docker-compose.full-stack-test.yml
+      # Public synthetic CI credentials, valid only for this disposable stack.
+      OPERATOR_API_KEYS_JSON: '{"ci-operator-only":{"subject":"ci-operator","roles":["agent_admin","approver","security_admin","auditor","killswitch_operator"]}}'
+      SERVICE_OPERATOR_API_KEY: ci-operator-only
+      EXECUTOR_HMAC_SECRET: ci-execution-only-not-a-production-secret-123456789
+      EXECUTOR_CREDENTIAL_SECRET: ci-brokered-only-not-a-production-secret-987654321
+      JWT_SECRET_KEY: ci-jwt-only-not-a-production-secret-123456789012345
+      KILLSWITCH_SECRET: ci-kill-only-not-a-production-secret-12345678901234
+      ACR_ENV: development
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record revision and runtime
+        run: |
+          mkdir -p full-stack-evidence
+          git rev-parse HEAD > full-stack-evidence/revision.txt
+          docker version > full-stack-evidence/docker-version.txt
+          docker compose version >> full-stack-evidence/docker-version.txt
+          docker compose config --quiet
+      - name: Pull disposable images
+        timeout-minutes: 5
+        run: docker compose pull postgres redis opa
+      - name: Build and start the complete stack
+        timeout-minutes: 12
+        run: docker compose up --build -d --wait --wait-timeout 300
+      - name: Run actual HTTP lifecycle checks
+        timeout-minutes: 8
+        run: python3 scripts/full_stack_validation.py
+      - name: Capture synthetic test-service logs
+        if: always()
+        run: |
+          mkdir -p full-stack-evidence
+          docker compose ps -a > full-stack-evidence/compose-status.txt
+          docker compose logs --no-color --tail 300 > full-stack-evidence/compose.log
+      - name: Tear down only this run's disposable stack
+        if: always()
+        timeout-minutes: 3
+        run: docker compose down -v --remove-orphans
+      - name: Retain bounded synthetic evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: acr-full-stack-${{ github.run_id }}-${{ github.run_attempt }}
+          path: implementations/acr-control-plane/full-stack-evidence/
+          retention-days: 1
