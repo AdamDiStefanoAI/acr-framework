@@ -15,10 +15,10 @@ patches:
   - path: remove-base-killswitch-netpol.yaml
 images:
   - name: acr-gateway
-    newName: ghcr.io/adamdistefanoai/acr-framework/acr-gateway
+    newName: ghcr.io/adamdistefanoai/acr-standard/acr-gateway
     newTag: v1.1.0
   - name: acr-killswitch
-    newName: ghcr.io/adamdistefanoai/acr-framework/acr-killswitch
+    newName: ghcr.io/adamdistefanoai/acr-standard/acr-killswitch
     newTag: v1.1.0
   - name: openpolicyagent/opa
     newName: openpolicyagent/opa

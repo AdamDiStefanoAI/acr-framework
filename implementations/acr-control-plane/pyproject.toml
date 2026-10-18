@@ -9,7 +9,7 @@ description = "ACR Reference Control Plane — governance gateway for autonomous
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-authors = [{ name = "ACR Framework" }]
+authors = [{ name = "ACR Standard" }]
 
 dependencies = [
     # Web framework

@@ -50,4 +50,4 @@ This document outlines the development plan for the ACR Framework. For high-leve
 
 ## Contributing to the Roadmap
 
-Suggestions for roadmap items are welcome. Open a [GitHub Issue](https://github.com/AdamDiStefanoAI/acr-framework/issues) describing the proposed change and its rationale.
+Suggestions for roadmap items are welcome. Open a [GitHub Issue](https://github.com/AdamDiStefanoAI/acr-standard/issues) describing the proposed change and its rationale.

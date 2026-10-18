@@ -19,8 +19,8 @@ Use the production overlay at [deploy/k8s/overlays/production](../deploy/k8s/ove
 ## 2. Clone and install
 
 ```bash
-git clone https://github.com/AdamDiStefanoAI/acr-framework.git
-cd acr-framework/implementations/acr-control-plane
+git clone https://github.com/AdamDiStefanoAI/acr-standard.git
+cd acr-standard/implementations/acr-control-plane
 pip install -e ".[dev]"
 ```
 
@@ -107,8 +107,8 @@ The overlay ships with release tags as defaults. Before production promotion, re
 
 ```bash
 kustomize edit set image \
-  acr-gateway=ghcr.io/adamdistefanoai/acr-framework/acr-gateway@sha256:<gateway-digest> \
-  acr-killswitch=ghcr.io/adamdistefanoai/acr-framework/acr-killswitch@sha256:<killswitch-digest>
+  acr-gateway=ghcr.io/adamdistefanoai/acr-standard/acr-gateway@sha256:<gateway-digest> \
+  acr-killswitch=ghcr.io/adamdistefanoai/acr-standard/acr-killswitch@sha256:<killswitch-digest>
 ```
 
 Then verify those digests using [provenance-and-verification.md](provenance-and-verification.md).

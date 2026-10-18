@@ -31,4 +31,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - README: "Why ACR?" positioning (OWASP/MITRE-style), adoption and governance links, citation and branding section, implementations section updated with ADOPTION reference.
   - Pull request template for documentation and spec changes.
 
-[1.0]: https://github.com/AdamDiStefanoAI/acr-framework/releases/tag/v1.0
+[1.0]: https://github.com/AdamDiStefanoAI/acr-standard/releases/tag/v1.0

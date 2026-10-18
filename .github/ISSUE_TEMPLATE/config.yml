@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Contributor setup and checks
-    url: https://github.com/AdamDiStefanoAI/acr-framework/blob/main/CONTRIBUTING.md
+    url: https://github.com/AdamDiStefanoAI/acr-standard/blob/main/CONTRIBUTING.md
     about: Set up the control plane and run local checks before contributing

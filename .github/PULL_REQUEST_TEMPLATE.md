@@ -19,8 +19,8 @@ Brief description of the change and the problem it solves.
 ## Checklist
 
 - [ ] Internal links have been updated if files were moved or renamed
-- [ ] Changes align with [CONTRIBUTING.md](https://github.com/AdamDiStefanoAI/acr-framework/blob/main/CONTRIBUTING.md) and the [docs/](https://github.com/AdamDiStefanoAI/acr-framework/tree/main/docs) structure
-- [ ] For specification changes: considered impact on [Implementation Guide](https://github.com/AdamDiStefanoAI/acr-framework/blob/main/docs/guides/acr-implementation-guide.md) or other references
+- [ ] Changes align with [CONTRIBUTING.md](https://github.com/AdamDiStefanoAI/acr-standard/blob/main/CONTRIBUTING.md) and the [docs/](https://github.com/AdamDiStefanoAI/acr-standard/tree/main/docs) structure
+- [ ] For specification changes: considered impact on [Implementation Guide](https://github.com/AdamDiStefanoAI/acr-standard/blob/main/docs/guides/acr-implementation-guide.md) or other references
 
 ## Validation
 
