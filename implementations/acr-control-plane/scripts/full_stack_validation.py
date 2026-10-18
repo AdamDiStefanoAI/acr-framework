@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import http.client
 import io
 import json
 import os
@@ -254,8 +255,10 @@ def run():
         try:
             ledger()
             break
-        except (urllib.error.URLError, AssertionError):
+        except (urllib.error.URLError, OSError, http.client.HTTPException):
             time.sleep(1)
+    else:
+        raise AssertionError("Executor did not become ready within 60 seconds")
     observe("executor-outage", status, body, before, 0)
     decision("executor-recovered", "allow")
     for service in ("opa", "redis", "postgres"):
