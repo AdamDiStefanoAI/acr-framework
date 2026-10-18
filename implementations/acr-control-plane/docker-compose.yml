@@ -62,7 +62,13 @@ services:
       - "--log-format=json"
       - "/policies"
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8181/health"]
+      # The official OPA image contains /opa, not wget or a shell.
+      test:
+        - CMD
+        - /opa
+        - eval
+        - --fail
+        - 'http.send({"method": "GET", "url": "http://127.0.0.1:8181/health", "timeout": "2s"}).status_code == 200'
       interval: 5s
       timeout: 3s
       retries: 10

@@ -55,6 +55,9 @@ jobs:
         run: |
           mkdir -p full-stack-evidence
           docker compose ps -a > full-stack-evidence/compose-status.txt
+          for container in $(docker compose ps -aq); do
+            docker inspect --format '{{.Name}} {{json .State.Health}}' "$container"
+          done > full-stack-evidence/container-health.txt
           docker compose logs --no-color --tail 300 > full-stack-evidence/compose.log
       - name: Tear down only this run's disposable stack
         if: always()
