@@ -1,11 +1,20 @@
 {
   "ignorePatterns": [
-    { "pattern": "^https://autonomouscontrol.io" },
-    { "pattern": "^https://github.com" },
-    { "pattern": "^https://opentelemetry.io" },
-    { "pattern": "^https://www.openpolicyagent.org" },
-    { "pattern": "^https://spiffe.io" },
-    { "pattern": "^http" }
+    {
+      "pattern": "^https://github.com"
+    },
+    {
+      "pattern": "^https://opentelemetry.io"
+    },
+    {
+      "pattern": "^https://www.openpolicyagent.org"
+    },
+    {
+      "pattern": "^https://spiffe.io"
+    },
+    {
+      "pattern": "^http"
+    }
   ],
   "replacementPatterns": [],
   "httpHeaders": [],

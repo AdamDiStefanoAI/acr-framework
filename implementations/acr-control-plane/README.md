@@ -8,6 +8,46 @@ If agents are going to reach customer data, ticketing systems, production infras
 
 This repo is that reference implementation.
 
+## The 30-second version
+
+```bash
+pip install acr-control-plane
+```
+
+```python
+from acr.sdk import ACRClient, guard_tool
+from acr.pillar1_identity.models import AgentRegisterRequest
+
+client = ACRClient(base_url="http://localhost:8000", operator_api_key="dev-operator-key")
+client.ensure_agent_registered(AgentRegisterRequest(
+    agent_id="support-bot",
+    owner="support@example.com",
+    purpose="Handle governed support actions",
+    allowed_tools=["refund_customer"],
+    forbidden_tools=["delete_customer"],
+))
+session = client.issue_agent_session("support-bot")
+
+def refund_customer(customer_id: str, amount_usd: float) -> str:
+    """Issue a refund to a customer."""
+    return f"refunded ${amount_usd} to {customer_id}"
+
+# Wrap any function: ACR authorizes it BEFORE it executes.
+refund_customer = guard_tool(refund_customer, session=session)
+
+refund_customer("cus_123", 25.00)   # allowed: runs, logged, attributed
+```
+
+`guard_tool` wraps any Python function so ACR authorizes it **before it executes**.
+Denied actions raise `ACRDeniedError` and never run. Escalations return a
+202 approval request instead of executing. Every decision lands in the
+evidence log with a correlation ID.
+
+Async tools: `guard_async_tool`. LangChain/LangGraph: `build_langchain_tool`.
+No gateway on your laptop yet? Try the [no-Docker quickstart](examples/quickstart_no_docker.py)
+to run this exact pattern against a mocked gateway in 60 seconds, or
+[run the full control plane](#-quickstart-60-seconds) with Docker Compose.
+
 ## Why This Exists
 
 Most agent stacks are optimized for capability:

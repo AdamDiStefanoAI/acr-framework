@@ -26,6 +26,6 @@ curl http://localhost:8000/acr/health
 Runtime reference implementation of the ACR six-pillar control plane.
 
 - Location: `./acr-control-plane`
-- Messaging/spec alignment: https://autonomouscontrol.io/control-plane
+- Messaging/spec alignment: https://runtimecontrol.io/control-plane
 
 Key idea: ACR provides runtime-enforced governance (identity, policy enforcement, drift detection, observability, containment, and human authority) for agentic AI that takes real actions.
