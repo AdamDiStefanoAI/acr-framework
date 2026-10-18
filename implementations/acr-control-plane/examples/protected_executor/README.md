@@ -66,7 +66,7 @@ the tool. Valid credentials for an unexposed tool return HTTP 403.
 - the control plane can mint short-lived execution authorization
 - the control plane can mint short-lived brokered downstream credentials
 - the executor can verify that authorization independently
-- the executor can enforce audience/scope-aware credentials instead of trusting the caller directly
+- the executor verifies brokered credential signatures and matches their agent/tool identity to the execution token
 - the exact request body is bound to the authorization token
 - bypass attempts that alter the payload can be rejected before tool execution
 
@@ -100,9 +100,27 @@ docker build -f examples/protected_executor/Dockerfile -t acr-protected-executor
 docker run --rm -p 8010:8010 --env-file examples/protected_executor/.env acr-protected-executor
 ```
 
-## Important Limitation
+## Important Limitations
 
-This is an application-layer enforcement pattern, not a complete enterprise bypass-resistance story by itself.
+This is an application-layer example, not a production-readiness guarantee or an
+ACR conformance claim (including Level 2). In particular:
+
+- The brokered credential audience is checked against the caller-supplied
+  `X-ACR-Credential-Audience` header, not an executor-configured audience. A validly
+  signed credential for another audience can be accepted with its matching header.
+- The example returns credential scopes but does not require an execute scope;
+  even an empty scope list can pass verification.
+- Agent and tool identities are matched between the two credentials, but their
+  correlation IDs and approval request IDs are not required to match.
+- There is no replay store or idempotency enforcement. Repeating a valid signed
+  request before expiration can execute the tool again.
+
+These are existing boundaries of the example; an HTTP 401 for malformed,
+missing, or payload-mismatched credentials does not establish those stronger
+properties. A production executor must enforce its own expected audience and
+required scopes, bind credentials to the same authorization context, and prevent
+unwanted duplicate execution. This example alone does not establish complete
+enterprise bypass resistance.
 
 For production, pair it with:
 - network egress controls
