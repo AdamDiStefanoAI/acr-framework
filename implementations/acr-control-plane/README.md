@@ -48,6 +48,8 @@ No gateway on your laptop yet? Try the [no-Docker quickstart](examples/quickstar
 to run this exact pattern against a mocked gateway in 60 seconds, or
 [run the full control plane](#-quickstart-60-seconds) with Docker Compose.
 
+![60-second demo: pip install, an allowed action runs, a denied action is blocked before execution](quickstart-demo.gif)
+
 ## Why This Exists
 
 Most agent stacks are optimized for capability:
