@@ -7,7 +7,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import http.client
 import io
 import json
 import os
@@ -17,6 +16,7 @@ import traceback
 import urllib.error
 import urllib.request
 import zipfile
+from http.client import HTTPException
 from pathlib import Path
 
 BASE = "http://127.0.0.1:8000"
@@ -127,6 +127,18 @@ def recovery(service):
         assert len(ledger()) == before
         time.sleep(2)
     raise AssertionError(service + " did not recover within 100 seconds")
+
+
+def wait_for_executor():
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        try:
+            ledger()
+            break
+        except (urllib.error.URLError, OSError, HTTPException):
+            time.sleep(1)
+    else:
+        raise AssertionError("Executor did not become ready within 60 seconds")
 
 
 def jwt(claims, secret):
@@ -250,15 +262,7 @@ def run():
         raise
     finally:
         compose("start", "protected-executor")
-    deadline = time.monotonic() + 60
-    while time.monotonic() < deadline:
-        try:
-            ledger()
-            break
-        except (urllib.error.URLError, OSError, http.client.HTTPException):
-            time.sleep(1)
-    else:
-        raise AssertionError("Executor did not become ready within 60 seconds")
+    wait_for_executor()
     observe("executor-outage", status, body, before, 0)
     decision("executor-recovered", "allow")
     for service in ("opa", "redis", "postgres"):
