@@ -2,6 +2,8 @@
 
 **ACR Control Layer 1 of 6**
 
+> Conformance requirements below summarize the normative v1.0.1 PDF. Architectural patterns, sample timings, thresholds, and technologies are illustrative unless the normative standard requires them. See [source precedence and versions](../README.md#normative-source-and-document-versions).
+
 ## Purpose
 
 Establish and enforce the operational identity and authorized scope of each AI system, ensuring systems cannot operate outside their intended domain without explicit authorization.
@@ -307,20 +309,18 @@ Enforcement point: Database proxy or API gateway
 
 An ACR-compliant implementation of Identity & Purpose Binding should satisfy:
 
-### Mandatory Requirements
-1. **Unique Identity:** Every AI system has a unique, verifiable identifier
-2. **Cryptographic Binding:** Identity uses cryptographic proof (signatures, certificates)
-3. **Purpose Definition:** System's authorized purpose is explicitly defined
-4. **Resource Authorization:** Access to each resource requires explicit grant
-5. **Deny by Default:** Operations not explicitly authorized are denied
-6. **Audit Trail:** All identity lifecycle events are logged
+### Mandatory Requirements (§15)
+1. **Identity and purpose:** Every agent MUST have a unique identity, declared purpose, and purpose-bound constraints.
+2. **Authoritative manifest:** MUST record agent ID, owner/accountable party, purpose, risk tier, allowed tools/capabilities, forbidden tools/capabilities if used, approved data scope, and operational boundaries.
+3. **Cryptographic binding:** Identity MUST be verifiable through cryptographic proof and validated for every protected action. Session-based models MUST document lifetime, binding rules, and revalidation conditions.
+4. **Purpose enforcement:** An agent MUST NOT act outside its declared purpose without an authorized manifest or policy change.
+5. **Scope change control:** Changes to purpose, capability scope, or high-risk boundaries MUST be approved through an authorized control path, versioned, logged, and auditable.
+6. **Revocation:** Revoking identity or execution authority MUST prevent future action execution.
 
 ### Recommended Features
 1. **Token Rotation:** Automated credential renewal without manual intervention
 2. **Least Privilege:** Minimal capabilities granted to achieve purpose
-3. **Scope Expansion Control:** Capability additions require approval workflow
-4. **Revocation Support:** Ability to immediately invalidate compromised identities
-5. **Multi-Factor Binding:** Identity tied to multiple attributes (workload + network + time)
+3. **Multi-Factor Binding:** Identity tied to multiple attributes (workload + network + time)
 
 ### Advanced Capabilities
 1. **Context-Aware Authorization:** Permissions vary based on time, location, or system state

@@ -102,7 +102,7 @@ Doing nothing is itself a decision. ACR gives you a defensible, standards-aligne
 
 ## TL;DR
 
-**ACR is a policy-enforcing gateway for AI agents.** Every action an agent wants to take goes through `POST /acr/evaluate` and gets a `allow | deny | escalate` decision in **<200ms**. It's a single FastAPI service backed by Postgres + Redis + OPA, with a separate kill-switch sidecar, deployable on Kubernetes or `docker compose up`.
+**ACR is a policy-enforcing gateway for AI agents.** Every action an agent wants to take goes through `POST /acr/evaluate` and gets an `allow | deny | modify | escalate` decision. It's a single FastAPI service backed by Postgres + Redis + OPA, with a separate kill-switch sidecar, deployable on Kubernetes or `docker compose up`.
 
 ## 🚀 Quickstart (60 seconds)
 
@@ -150,20 +150,20 @@ sequenceDiagram
     G->>DB: [2] agent active + lifecycle ok
     G->>R: [3] rate-limit bucket
     G->>O: [4] Rego evaluate
-    O-->>G: allow / deny / escalate
+    O-->>G: allow / deny / modify / escalate
     G->>G: [5] PII filter on params
     alt escalate
         G->>DB: create approval request
         G->>H: signed webhook
         G-->>A: 202 APPROVAL_PENDING
-    else allow / deny
+    else allow / deny / modify
         G-->>A: 200 / 403
     end
     Note over G,DB: BackgroundTasks (non-blocking):<br/>persist telemetry → drift sample →<br/>recompute drift score every N calls
     Note over K: Kill writes go through<br/>independent service.<br/>Reads are Redis-direct.
 ```
 
-**Latency budget:** ~5ms identity, ~10ms rate limit, ~20–50ms OPA, <5ms PII filter. Total p95 target: **<200ms**, telemetry/drift never blocks the response.
+**Performance target:** p95 decision latency below 200ms is a design target, not a measured guarantee. The diagram summarizes the reference implementation, not proof of conformance. Under the normative standard (§11), inability to durably record required events MUST prevent high-risk protected execution, use alternate durable failure recording if available, and transition affected action classes to their documented safe-state if required evidence cannot be preserved. Asynchronous telemetry does not waive that gate.
 
 ## Architecture at a glance
 
@@ -215,8 +215,8 @@ sequenceDiagram
 
 - **Fail-secure everywhere.** OPA down → deny. Redis down → deny. Unexpected exception → deny. Never silently allow.
 - **The kill switch is a separate process.** Reads are Redis-direct for the hot path; writes go through an independent service with its own secret. A compromised gateway cannot un-kill an agent.
-- **Hot path is non-blocking.** Telemetry persistence, drift sampling, and drift score recomputation are all `BackgroundTasks`. The 200ms latency budget covers only the decision, not the bookkeeping.
-- **Policy is code, not config.** All allow/deny/escalate logic is Rego, versioned and shipped through the Policy Studio's release lifecycle. No `if statement in Python` policy decisions.
+- **Asynchronous work does not waive evidence requirements.** The reference implementation uses background work for telemetry and drift. Deployments must validate the §11 durable-evidence failure gate before claiming conformance; a latency target is not evidence that this gate is satisfied.
+- **Policy is versioned.** Rego policies support allow, deny, modify, and escalate outcomes and are managed through the Policy Studio release lifecycle. Gateway safety checks also constrain execution. MODIFY requires a policy-supplied transformed payload; it is not permission to execute the original request unchanged.
 - **Drift baselines have governance.** Without it, a slowly-misbehaving agent could simply re-baseline itself into "normal." Governed baselines require proposal → approval → activation by separate operators.
 - **Migrations are automatic.** Both K8s and `docker compose` run `alembic upgrade head` before the gateway starts. You cannot forget to migrate.
 - **Weak secrets are rejected at startup.** Production environments refuse to boot with default JWT keys, weak kill-switch secrets, or missing executor HMAC keys.

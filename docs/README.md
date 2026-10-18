@@ -1,6 +1,14 @@
 # ACR Standard Documentation
 
-This directory contains the full ACR (Agentic Control at Runtime) Standard documentation—a reference architecture for governing autonomous AI systems at runtime.
+This directory contains implementation guidance for ACR (Agentic Control at Runtime), a reference architecture for governing autonomous AI systems at runtime.
+
+## Normative source and document versions
+
+The ACR Runtime Control Plane Standard v1.0.1 PDF (2026-03-29) is the normative baseline for these summaries. The published standard and companion material are available through [runtimecontrol.io](https://runtimecontrol.io). The normative PDF and published website take precedence over repository guidance where they differ. Repository examples, design targets, and recommended patterns do not add to or waive the standard’s requirements, and do not demonstrate implementation conformance.
+
+“ACR Framework v1.0” and telemetry schema version `1.0` in older guidance identify those documents or formats; they are not the normative PDF version or a software release identifier. Cite the exact artifact and version assessed. See the [adoption guide](../ADOPTION.md#citation).
+
+Section 21 intentionally covers both operational attack surfaces and the canonical STRIKE taxonomy. Preserve both views when mapping threats; one does not replace the other. Conformance claims follow §23 and must state their scope. Level 1 observability alone does not establish controlled execution or full runtime control-plane compliance.
 
 ## Get Started by Role
 

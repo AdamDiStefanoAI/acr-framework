@@ -2,6 +2,8 @@
 
 **ACR Control Layer 5 of 6**
 
+> Conformance requirements below summarize the normative v1.0.1 PDF. Architectural patterns, sample timings, thresholds, and technologies are illustrative unless the normative standard requires them. See [source precedence and versions](../README.md#normative-source-and-document-versions).
+
 ## Purpose
 
 Ensure autonomous systems do not fail open. When risk is detected — through drift signals, policy violations, operator judgment, or external threat intelligence — the system must be able to isolate fault, revert to safe state, limit propagation, or shut down entirely. Containment must operate independently of the agent runtime to remain effective even when the agent itself is compromised or unresponsive.
@@ -353,20 +355,19 @@ Tier 4 — Kill:
 
 ## Evaluation Criteria
 
-### Mandatory Requirements
-1. **Kill switch independence:** Shutdown capability operates outside agent runtime and cannot be disabled by the agent
-2. **Kill switch testing:** Tested quarterly with response time measured and documented
-3. **Safe-state definition:** Every production agent has a documented, tested safe-state configuration
-4. **Containment logging:** All containment actions logged with agent_id, triggering event, operator/automation, actions taken, and timestamp
-5. **Network isolation capability:** Ability to sever agent connectivity to downstream systems within 60 seconds
-6. **Rollback capability:** Ability to restore agent configuration to a previous known-good state
+### Mandatory Requirements (§19)
+1. **Independent containment:** MUST operate independently of the agent runtime and include an externally operable kill capability, one or more isolation modes, documented safe-states, and logging of all containment actions.
+2. **Kill enforcement:** MUST be invocable by authorized humans, complete within 30 seconds from activation to enforcement, revoke or invalidate effective execution authority, and prevent further protected execution until restoration is authorized. Automated invocation requires documented automation identity and triggering conditions.
+3. **Graduated tiers:** MUST include at least throttling, restriction of tools/permissions/destinations, isolation of the agent or execution path, and kill/full shutdown.
+4. **Tested safe-state:** Every production agent MUST have a tested safe-state defining allowed and disabled actions, human escalation, and evidence preservation.
+5. **State-changing actions:** For protected actions that can change persistent state, MUST document whether rollback is supported. If supported, document procedure and evidence source; otherwise document compensating controls. Universal rollback capability is not required.
+6. **Quarterly testing:** Kill-switch and safe-state procedures MUST be tested at least quarterly and test evidence retained.
 
 ### Recommended Features
-1. **Graduated response tiers** with automated escalation from throttle through kill
-2. **Heartbeat monitoring** with dead-agent detection
-3. **Pre-defined isolation policies** tested and ready for immediate application
-4. **Automated verification** confirming containment actions were effective
-5. **State checkpoint system** enabling point-in-time recovery
+1. **Heartbeat monitoring** with dead-agent detection
+2. **Pre-defined isolation policies** tested and ready for immediate application
+3. **Automated verification** confirming containment actions were effective
+4. **State checkpoint system** enabling point-in-time recovery where supported
 
 ### Advanced Capabilities
 1. **Predictive containment** triggering pre-emptive throttling based on drift trend analysis

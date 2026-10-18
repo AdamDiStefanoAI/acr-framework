@@ -2,7 +2,9 @@
 
 > **Aligned to ACR Runtime Control Plane Standard v1.0.1** (normative, 2026-03-29).
 > This revision supersedes the v1.0 taxonomy. The category names below match the
-> normative STRIKE Threat Mapping (§21) of the v1.0.1 specification.
+> normative STRIKE Threat Mapping (§21) of the v1.0.1 specification. See [source precedence](../README.md#normative-source-and-document-versions).
+>
+> Section 21 also requires coverage of the operational surfaces described by identity or scope abuse, tool misuse, role drift, information leakage, kill-chain expansion, and execution manipulation. Implementations MUST cover both the canonical categories and these operational control surfaces. The canonical taxonomy does not remove the operational coverage requirement.
 
 The **STRIKE** framework defines a threat model for agentic AI systems at runtime. It complements the ACR Standard: **STRIKE** identifies the threats; **ACR** provides the control architecture to mitigate them.
 

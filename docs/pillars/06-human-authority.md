@@ -2,6 +2,8 @@
 
 **ACR Control Layer 6 of 6**
 
+> Conformance requirements below summarize the normative v1.0.1 PDF. Architectural patterns, sample timings, thresholds, and technologies are illustrative unless the normative standard requires them. See [source precedence and versions](../README.md#normative-source-and-document-versions).
+
 ## Purpose
 
 Ensure that accountable authority over consequential decisions remains human. Autonomous systems may assist, accelerate, and recommend, but humans retain override rights, escalation authority, and decision control over high-impact outcomes. This pillar defines who can approve, who can override, when escalation is required, and how exception paths are governed.
@@ -383,20 +385,21 @@ Conflict Resolution:
 
 ## Evaluation Criteria
 
-### Mandatory Requirements
-1. **Action tiering** defined with clear, deterministic criteria for low/medium/high risk classification
-2. **Escalation authority matrix** documented with primary and backup approvers per action category
-3. **Timeout handling** with defined SLA and fallback behavior (deny for Tier 3 by default)
-4. **Human decision logging** with approver identity, decision, timestamp, and justification for every approval
-5. **Break-glass procedures** documented with multi-party authorization and mandatory after-action review
-6. **Accountability chain** connecting every agent action to either automatic policy or human decision
+### Mandatory Requirements (§20)
+1. **Action tiering:** MUST distinguish autonomous actions, actions requiring review/gating, and actions requiring explicit human approval before execution. New or unclassified high-impact actions MUST default to the highest approval class until classified.
+2. **Escalation authority matrix:** MUST define approval roles by action category, delegation limits, backup approvers, and timeout behavior.
+3. **Durable approval and context:** Escalated actions MUST have a durable approval record and present agent identity, declared purpose, requested action and parameters, policy basis, current drift state, and timeout deadline to the reviewer.
+4. **Execution gate:** MUST prevent autonomous execution before approval, enforce timeout behavior, and log approval, denial, override, and timeout outcomes.
+5. **Independent human authority:** Controls MUST remain operable if the agent runtime or model infrastructure is unavailable.
+
+### Optional Break-Glass Capability (§20)
+Break-glass MAY be provided. If provided, it MUST be scoped and time-limited, logged in tamper-evident form with approver identity, subject to mandatory post-use review, and approved in advance by a defined authority. The multi-party procedure and sample durations in Pattern 3 are implementation choices, not universal conformance requirements.
 
 ### Recommended Features
-1. **Approval queue with SLA enforcement** and automated escalation on non-response
-2. **Context-rich approval requests** including agent identity, action details, risk assessment, and recent history
-3. **Communication platform integration** (Slack, Teams, email, mobile push) for reviewer notification
-4. **Batch approval capability** for high-volume Tier 2 requests
-5. **Delegation support** with time-limited scope and audit trail
+1. **Automated escalation** on reviewer non-response
+2. **Communication platform integration** for reviewer notification
+3. **Batch approval capability** for appropriate requests within defined authority and scope
+4. **Delegation support** with time-limited scope and audit trail
 
 ### Advanced Capabilities
 1. **Adaptive tier classification** that adjusts risk tier based on agent drift score and recent behavior

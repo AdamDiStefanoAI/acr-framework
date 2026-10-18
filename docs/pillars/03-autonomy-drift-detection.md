@@ -2,6 +2,8 @@
 
 **ACR Control Layer 3 of 6**
 
+> Conformance requirements below summarize the normative v1.0.1 PDF. Architectural patterns, sample timings, thresholds, and technologies are illustrative unless the normative standard requires them. See [source precedence and versions](../README.md#normative-source-and-document-versions).
+
 ## Purpose
 
 Detect deviations from intended role, expected patterns, or approved boundaries before drift becomes damage. Autonomous systems do not need to "break" to become dangerous — they can drift gradually away from their sanctioned operating envelope through prompt manipulation, emergent behavior, context accumulation, or environmental changes.
@@ -335,20 +337,19 @@ Response Tier Mapping:
 
 ## Evaluation Criteria
 
-### Mandatory Requirements
-1. **Behavioral baselines** established for every production agent (30-day minimum training)
-2. **Real-time drift scoring** with normalized 0.0–1.0 scale
-3. **Automated response** at configurable thresholds (minimum: throttle and isolate)
-4. **Drift alert logging** with severity, triggering behavior, and response action
-5. **False positive tracking** with documented rate and adjustment history
-6. **Rule-based boundary detection** for scope violations and repeated denials
+### Mandatory Requirements (§17)
+1. **Behavioral baseline:** Before unrestricted autonomous execution for a protected action class, the system MUST establish a baseline from at least 30 days of representative activity or a documented temporary baseline approved by human authority for newly deployed agents.
+2. **Detection signals:** MUST monitor tool usage, data access, action frequency/bursts, repeated policy denials, escalation pressure/reformulations, novel action sequences, off-hours/boundary-inconsistent activity, and suspicious input/output related to manipulation attempts for each protected agent.
+3. **Drift output:** MUST compute either a normalized 0.0–1.0 score or a documented severity classification that maps deterministically to response tiers. A numeric score is not the only conformant method.
+4. **Thresholded response:** Threshold crossings MUST trigger the documented tier without ad hoc operator interpretation. Tiers MUST include at least throttle, restrict, isolate, and kill.
+5. **Retained evidence:** MUST retain baseline version/training basis, signal history, threshold values, response actions, and false-positive review or calibration history.
 
 ### Recommended Features
 1. **Composite scoring** from multiple detection methods (statistical + rules + ML)
 2. **Configurable weights** per agent risk tier
 3. **Shadow mode** for testing new detection rules before enforcement
 4. **Hysteresis** preventing single-point spikes from triggering containment
-5. **Purpose-group baselines** for cold-start agents
+5. **Purpose-group baselines** for cold-start agents, subject to the approved temporary-baseline requirement above
 
 ### Advanced Capabilities
 1. **Predictive drift** using trend analysis to forecast threshold breaches before they occur
