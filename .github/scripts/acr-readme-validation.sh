@@ -26,6 +26,7 @@ fi
 
 SEQ=0
 COMPOSE_PID=''
+COMPOSE_SEQ=''
 COMPOSE_REAPED=false
 COMPOSE_STARTED=false
 CURRENT_STAGE=environment
@@ -80,8 +81,10 @@ run() {
 
 record_compose_exit() {
   local code=$1 reason=$2
-  printf 'compose-up\tstartup\t%s\t%s\t%s\tcompose-up.log\n' \
-    "$COMPOSE_STARTED_AT" "$code" 'docker compose up --build' >> "$EVIDENCE/commands.tsv"
+  # Complete the original start row without changing command execution order.
+  awk -F '\t' -v OFS='\t' -v sequence="$COMPOSE_SEQ" -v code="$code" \
+    '$1 == sequence {$4 = code} {print}' "$EVIDENCE/commands.tsv" > "$EVIDENCE/commands.tsv.tmp"
+  mv "$EVIDENCE/commands.tsv.tmp" "$EVIDENCE/commands.tsv"
   printf 'exit_code=%s\nreason=%s\n' "$code" "$reason" > "$EVIDENCE/compose-up-exit.txt"
   COMPOSE_REAPED=true
 }
@@ -164,6 +167,10 @@ run required export SERVICE_OPERATOR_API_KEY=dev-operator-key
 CURRENT_STAGE=startup
 COMPOSE_STARTED=true
 COMPOSE_STARTED_AT=$(date -u +%FT%TZ)
+SEQ=$((SEQ + 1))
+COMPOSE_SEQ=$SEQ
+printf '%s\tstartup\t%s\tpending\tdocker compose up --build\tcompose-up.log\n' \
+  "$COMPOSE_SEQ" "$COMPOSE_STARTED_AT" >> "$EVIDENCE/commands.tsv"
 printf '\n$ docker compose up --build\n'
 docker compose up --build > "$EVIDENCE/compose-up.log" 2>&1 &
 COMPOSE_PID=$!

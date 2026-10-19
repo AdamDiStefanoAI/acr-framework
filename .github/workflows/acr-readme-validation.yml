@@ -24,7 +24,6 @@ jobs:
     timeout-minutes: 30
     env:
       COMPOSE_PROJECT_NAME: acr-readme-${{ github.run_id }}-${{ github.run_attempt }}
-      README_EVIDENCE: ${{ runner.temp }}/acr-readme-evidence
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,10 +34,14 @@ jobs:
           python-version: '3.12'
       - name: Follow the public Compose and sample-agent instructions
         timeout-minutes: 25
+        env:
+          README_EVIDENCE: ${{ runner.temp }}/acr-readme-evidence
         run: bash .github/scripts/acr-readme-validation.sh
       - name: Ensure only this run's disposable resources are removed
         if: always()
         timeout-minutes: 2
+        env:
+          README_EVIDENCE: ${{ runner.temp }}/acr-readme-evidence
         working-directory: implementations/acr-control-plane
         # Fallback if cancellation interrupted the script's own EXIT cleanup.
         run: |
