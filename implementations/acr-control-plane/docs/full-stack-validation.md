@@ -79,7 +79,7 @@ The job built and exercised the actual disposable services and synthetic final t
 This historical result does not automatically validate a later revision or the
 ordinary newcomer setup on another machine. See the
 [captured evidence walkthrough](../../../docs/evidence-walkthrough.md) for selected
-actual output and the missing DENY event/archive capture.
+actual output, including a later pinned run that captures both ALLOW and DENY events/archives.
 
 `full-stack-evidence/` records revision, Docker versions, observations, exact tool
 payloads, first failure (preserved even if recovery also fails), container status,

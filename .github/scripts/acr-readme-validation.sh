@@ -41,7 +41,7 @@ first terminal. Startup polling, timeouts, recording and teardown are CI harness
 operations, not repairs to the README. No detached/wait flags or Compose overrides.
 The runner checkout replaces `git clone`; revision and public-source hashes are recorded.
 Console coverage is HTTP page availability only. No browser interaction is tested.
-Sample output is recorded and expected ALLOW/DENY/ESCALATE labels checked. This is
+Sample output is recorded and expected ALLOW/MODIFY/DENY/ESCALATE labels checked. This is
 not proof of protected downstream effects, approval resolution, audit durability,
 all six pillars, production readiness, or full standard conformance.
 A failing required command or assertion stops onboarding. No workaround is attempted.
@@ -222,4 +222,4 @@ run required export ACR_OPERATOR_API_KEY=dev-operator-key
 CURRENT_STAGE=sample-agent
 run required timeout --kill-after=10s 90s python examples/sample_agent/agent.py
 sample_log=$LAST_LOG
-run required python -c 'import pathlib,sys; t=pathlib.Path(sys.argv[1]).read_text(); expected=["[ALLOW] query_customer_db", "[ALLOW] send_email", "[ALLOW] create_ticket", "[DENY] delete_customer", "[ESCALATE] issue_refund"]; missing=[x for x in expected if x not in t]; assert not missing, f"Missing documented sample outcomes: {missing}"; print("Observed expected sample decision labels; downstream effects and full pillar claims are not validated.")' "$sample_log"
+run required python -c 'import pathlib,sys; t=pathlib.Path(sys.argv[1]).read_text(); expected=["[ALLOW] query_customer_db", "[MODIFY] send_email", "[ALLOW] create_ticket", "[DENY] delete_customer", "[ESCALATE] issue_refund"]; missing=[x for x in expected if x not in t]; assert not missing, f"Missing documented sample outcomes: {missing}"; print("Observed expected sample decision labels; downstream effects and full pillar claims are not validated.")' "$sample_log"

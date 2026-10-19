@@ -322,7 +322,7 @@ The control plane is a reference implementation for evaluation and contribution.
 
 ## Captured runtime evidence
 
-See the [evidence walkthrough](docs/evidence-walkthrough.md) for actual synthetic allow/deny responses, observed execution counts, and a captured ALLOW event/export. The missing DENY event/export is explicitly identified.
+See the [evidence walkthrough](docs/evidence-walkthrough.md) for actual synthetic allow/deny responses, observed execution counts, and matching captured ALLOW and DENY events/exports. The limits of this disposable test are explicit.
 
 ## Contributing
 
