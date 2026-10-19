@@ -1,4 +1,4 @@
-# Disposable full-stack validation (proposed; not yet Docker-validated)
+# Disposable full-stack validation
 
 This test job builds and starts the actual Compose gateway, migration service,
 independent kill switch, PostgreSQL, Redis, OPA, and protected executor. It calls
@@ -13,7 +13,7 @@ has no authentication and must never be deployed; its test port is bound only to
 127.0.0.1 on a disposable runner. No real customer records, payments, email, model
 services, production secrets, or shared databases are used.
 
-## Proposed checks
+## Checks exercised by the workflow
 
 - Register an agent with real operator auth and issue its JWT; reject unauthenticated registration.
 - ALLOW executes the authorized tool and exact parameters once.
@@ -70,14 +70,19 @@ proof that Docker startup succeeds.
 
 ## Execution and evidence
 
-The workflow runs on a draft PR affecting the implementation, and supports
-workflow_dispatch once GitHub recognizes it on the default branch. Publishing
-this workflow or creating its PR requires owner approval. No run has occurred
-in the current cloud workspace because it has no usable container runtime.
+The workflow is now on main. A successful real Docker run is recorded at
+[39191938094](https://github.com/AdamDiStefanoAI/acr-standard/actions/runs/39191938094),
+attempt 1, completed 2026-10-19 02:53 UTC. Its PR head was
+`f1672e46196e634eea5c6a9941431dbadaf7e564`; the checked-out test merge revision
+recorded in `revision.txt` was `00be86175c538b75a16beb712d8d9ca6dbad0e30`.
+The job built and exercised the actual disposable services and synthetic final tools.
+This historical result does not automatically validate a later revision or the
+ordinary newcomer setup on another machine. See the
+[captured evidence walkthrough](../../../docs/evidence-walkthrough.md) for selected
+actual output and the missing DENY event/archive capture.
 
 `full-stack-evidence/` records revision, Docker versions, observations, exact tool
 payloads, first failure (preserved even if recovery also fails), container status,
-service logs, event chain, and an evidence archive. Passing unit/static checks for
-this proposed code must not be presented as a full-stack PASS. The first real run
-may expose startup/configuration defects; retain failures rather than weakening
-assertions to obtain green results.
+service logs, event chain, and an evidence archive. Passing unit/static checks alone must not be presented as a full-stack PASS.
+Future runs may expose defects; retain failures rather than weakening assertions
+to obtain green results.

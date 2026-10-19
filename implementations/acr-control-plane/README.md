@@ -46,7 +46,7 @@ evidence log with a correlation ID.
 Async tools: `guard_async_tool`. LangChain/LangGraph: `build_langchain_tool`.
 No gateway on your laptop yet? Try the [no-Docker quickstart](examples/quickstart_no_docker.py)
 to run this exact pattern against a mocked gateway in 60 seconds, or
-[run the full control plane](#-quickstart-60-seconds) with Docker Compose.
+[run the full control plane](#quick-start) with Docker Compose.
 
 ![60-second demo: pip install, an allowed action runs, a denied action is blocked before execution](quickstart-demo.gif)
 
@@ -226,6 +226,22 @@ The sample flow demonstrates:
 2. normal allowed actions
 3. denied dangerous actions
 4. escalated high-risk actions
+
+## Quickstart troubleshooting
+
+These are diagnostic checks for the documented local Compose path, not a claim that every host setup was tested. Use only an isolated development stack; do not delete shared volumes or stop unrelated services.
+
+| Symptom | Likely cause / check | Next step |
+|---|---|---|
+| `port is already allocated` / `address already in use` | Another service owns a published port. Inspect `docker compose ps` and the ports in `docker-compose.yml`. | Stop only your conflicting local demo, or choose unused host ports and update client URLs consistently. |
+| Build or container exits with `OOMKilled`, exit 137, or an explicit memory allocation error | Docker's available memory may be exhausted. Inspect `docker compose ps -a`, service logs and Docker resource settings; exit 137 alone is not proof of OOM. | Free local resources or adjust Docker's memory allocation yourself, then retry the disposable stack. Do not weaken application security checks. |
+| First build appears slow | Initial image pulls and dependency installation may take longer than cached runs. Watch `docker compose up --build` output. | Keep the build output visible; investigate the specific download/build error rather than assuming a fixed 60-second completion time. No portable first-build duration is guaranteed. |
+| Gateway health request fails | Gateway may still be starting, migrations may have failed, or a dependency may be unhealthy. | Run `docker compose ps -a` and `docker compose logs --tail=100 acr-migrate acr-gateway postgres redis opa`; resolve the reported failure, then retry `curl --fail http://localhost:8000/acr/health`. |
+| Operator request returns 401 | The configured operator key and client key may differ, or environment variables were set in another shell. | Follow the sample-agent setup, keep the local key consistent and recreate the affected demo containers after environment changes (`docker compose restart` does not apply new environment values). Never paste production secrets into an issue. |
+
+The disposable full-stack CI run validates its own fixture/override setup; it is not a clean-machine test of every instruction above. A fresh ordinary README walkthrough remains tracked in [#22](https://github.com/AdamDiStefanoAI/acr-standard/issues/22).
+
+See the [captured evidence walkthrough](../../docs/evidence-walkthrough.md) for real synthetic allow/deny responses, observed tool effects, and the limits of the captured audit chain.
 
 ## Core API Surface
 
