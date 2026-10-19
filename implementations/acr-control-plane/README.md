@@ -237,7 +237,7 @@ These are diagnostic checks for the documented local Compose path, not a claim t
 | Build or container exits with `OOMKilled`, exit 137, or an explicit memory allocation error | Docker's available memory may be exhausted. Inspect `docker compose ps -a`, service logs and Docker resource settings; exit 137 alone is not proof of OOM. | Free local resources or adjust Docker's memory allocation yourself, then retry the disposable stack. Do not weaken application security checks. |
 | First build appears slow | Initial image pulls and dependency installation may take longer than cached runs. Watch `docker compose up --build` output. | Keep the build output visible; investigate the specific download/build error rather than assuming a fixed 60-second completion time. No portable first-build duration is guaranteed. |
 | Gateway health request fails | Gateway may still be starting, migrations may have failed, or a dependency may be unhealthy. | Run `docker compose ps -a` and `docker compose logs --tail=100 acr-migrate acr-gateway postgres redis opa`; resolve the reported failure, then retry `curl --fail http://localhost:8000/acr/health`. |
-| Operator request returns 401 | The configured operator key and client key may differ, or environment variables were set in another shell. | Follow the sample-agent setup, keep the local key consistent and restart the affected demo service after configuration changes. Never paste production secrets into an issue. |
+| Operator request returns 401 | The configured operator key and client key may differ, or environment variables were set in another shell. | Follow the sample-agent setup, keep the local key consistent and recreate the affected demo containers after environment changes (`docker compose restart` does not apply new environment values). Never paste production secrets into an issue. |
 
 The disposable full-stack CI run validates its own fixture/override setup; it is not a clean-machine test of every instruction above. A fresh ordinary README walkthrough remains tracked in [#22](https://github.com/AdamDiStefanoAI/acr-standard/issues/22).
 
@@ -402,3 +402,4 @@ If the answer is "the prompt," "the app code," or "we’d catch it in logs," thi
 Apache 2.0. See [LICENSE](LICENSE).
 
 Based on the [ACR Framework specification](https://github.com/AdamDiStefanoAI/acr-standard).
+
