@@ -2,6 +2,8 @@
 
 **ACR Control Layer 4 of 6**
 
+> Conformance requirements below summarize the normative v1.0.1 PDF. Architectural patterns, sample timings, thresholds, and technologies are illustrative unless the normative standard requires them. See [source precedence and versions](../README.md#normative-source-and-document-versions).
+
 ## Purpose
 
 Provide the decision trails, tool traces, policy events, and state history needed for assurance, investigation, and operational trust. You cannot govern what you cannot reconstruct. Execution observability ensures every autonomous action is visible, reviewable, and audit-ready.
@@ -331,20 +333,21 @@ Compliance modes:
 
 ## Evaluation Criteria
 
-### Mandatory Requirements
-1. **Correlation IDs** generated for every action chain, propagated to all downstream calls
-2. **Structured logging** conforming to ACR Telemetry Schema for all control plane events
-3. **Policy decision logging** for every allow and deny decision with policy_id and justification
-4. **Retention enforcement** meeting minimum periods (90-day all agents, 13-month high-risk)
-5. **Audit export capability** producing structured, queryable output for investigations
-6. **Log integrity protection** preventing unauthorized modification of stored events
+### Mandatory Requirements (§18)
+1. **Complete action and decision logging:** MUST log all actions and decisions, including ALLOW, DENY, MODIFY, and ESCALATE, with the applicable policy results and execution/approval metadata.
+2. **Required fields and linkage:** MUST include schema version, event ID, timestamp, event type, agent ID, purpose, request or correlation ID, decision outcome, relevant policy results, execution metadata for execution events, and approval metadata for approval/escalation events. A correlation identifier or equivalent linkage MUST connect the full action chain.
+3. **Retention:** MUST retain all ACR events for at least 90 days and high-risk agent events for at least 13 months.
+4. **High-risk integrity:** High-risk events MUST use tamper-evident or append-only storage; a cryptographic hash chain is one possible implementation.
+5. **Audit export:** MUST support audit-ready reconstruction without manual reconstruction from unstructured logs.
+6. **Privacy:** MUST apply privacy-preserving treatment to sensitive log fields and document, by field category, whether fields are plaintext, redacted, hashed, tokenized, or omitted.
+7. **Durable-recording failure (§11):** Inability to durably record required events MUST block high-risk protected actions, record failure through an alternate durable mechanism if available, and transition affected action classes to the documented safe-state if required evidence cannot be preserved.
 
 ### Recommended Features
-1. **Append-only logging** with cryptographic hash chain for high-risk agent events
-2. **OpenTelemetry integration** for vendor-neutral telemetry pipeline
+1. **Cryptographic hash chaining** as one way to implement high-risk tamper evidence
+2. **OpenTelemetry integration** for vendor-neutral telemetry pipelines
 3. **Real-time dashboards** for agent operations, policy effectiveness, and drift trends
-4. **PII redaction** applied before log storage with configurable compliance modes
-5. **Sampling support** for high-volume agents without losing critical events
+4. **Configurable privacy treatment** suited to deployment requirements
+5. **Sampling of supplemental diagnostics** only; sampling MUST NOT omit required action/decision records
 
 ### Advanced Capabilities
 1. **Tamper-evident verification** with automated hash chain integrity checks

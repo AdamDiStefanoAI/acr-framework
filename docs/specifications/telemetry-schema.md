@@ -4,7 +4,7 @@
 **Status:** Stable  
 **Last Updated:** March 2026
 
-This document defines the canonical schema for telemetry events emitted by ACR-aligned control planes. It supports [Pillar 4: Execution Observability](../pillars/04-execution-observability.md), audit trails, drift detection input, and compliance evidence generation.
+This document describes a telemetry field layout for ACR implementations. The normative v1.0.1 PDF §§11 and 18 govern required evidence and failure handling; see [source precedence and versions](../README.md#normative-source-and-document-versions). The schema version `1.0` identifies the format, not the normative PDF or software release. This guide does not assert that every reference-implementation event already satisfies these requirements. It supports [Pillar 4: Execution Observability](../pillars/04-execution-observability.md), audit trails, drift detection input, and compliance evidence generation.
 
 ## Purpose and Scope
 
@@ -36,11 +36,13 @@ Events are JSON objects. Field names use `snake_case`. Timestamps use ISO 8601 w
 | `event_id` | string | Yes | Unique event identifier (UUID v4 recommended). |
 | `event_type` | string | Yes | One of: `ai_inference`, `policy_decision`, `drift_alert`, `containment_action`, `human_intervention`. |
 | `timestamp` | string | Yes | ISO 8601 timestamp with timezone. |
-| `correlation_id` | string | No | Links this event to a request or trace; should be consistent across spans of the same action. |
-| `agent` | object | Yes* | Identity and purpose binding. *Optional only for non-agent events (e.g. system health). |
-| `request` | object | No | Request context; required for `ai_inference` and often for `policy_decision`. |
-| `execution` | object | No | Execution details (duration, tool calls); typical for `ai_inference`. |
-| `policies` | array | No | Policy evaluation results; present when policy checks were performed. |
+| `correlation_id` | string | Conditional | A request or correlation identifier is required for every ACR action/decision record. This field or equivalent linkage MUST connect the full action chain. |
+| `agent` | object | Yes | Agent identity and purpose for required ACR action/decision records. Supplemental system-health events do not replace these records. |
+| `request` | object | Conditional | Request context; request or correlation identifier MUST be present. |
+| `execution` | object | Conditional | Execution metadata MUST be present for execution events. |
+| `policies` | array | Yes | Relevant policy results for required ACR action/decision records. |
+| `decision` | string | Yes | Decision outcome: `allow`, `deny`, `modify`, or `escalate`. |
+| `approval` | object | Conditional | Approval metadata MUST be present for approval or escalation events. |
 | `output` | object | No | Output metadata (tokens, cost); for inference events. |
 | `metadata` | object | No | Environment, drift score, and other extensible attributes. |
 
@@ -57,7 +59,7 @@ Events are JSON objects. Field names use `snake_case`. Timestamps use ISO 8601 w
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `request_id` | string | No | Client or gateway request ID for correlation. |
+| `request_id` | string | Conditional | Required if a correlation identifier is not recorded elsewhere; full action-chain linkage is still required. |
 | `input` | object | No | Sanitized or summarized input (avoid logging full PII); size limits apply. |
 
 ### Object: `execution`
@@ -75,7 +77,7 @@ Each element represents one policy evaluation:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `policy_id` | string | Yes | Policy or rule identifier. |
-| `decision` | string | Yes | `allow` or `deny`. |
+| `decision` | string | Yes | `allow`, `deny`, `modify`, or `escalate`. |
 | `rule_id` | string | No | Specific rule that fired. |
 | `transformations` | number | No | Count of transformations applied (e.g. redactions). |
 
@@ -103,8 +105,11 @@ Additional custom fields MAY be added under `metadata` or as top-level extension
 1. **Schema version:** `acr_version` MUST be present and parseable. Consumers MAY reject unknown major versions.
 2. **Event size:** Events SHOULD stay under 10 KB to avoid pipeline and storage bloat. Redact or truncate large payloads (e.g. `request.input`, tool call payloads) and document redaction policy.
 3. **Timestamps:** `timestamp` MUST be ISO 8601 with timezone. Prefer UTC.
-4. **Async emission:** Telemetry MUST NOT block the action pipeline; emit asynchronously where possible.
-5. **Integrity:** For audit logs, use append-only storage and optional hash-chaining as described in [Pillar 4](../pillars/04-execution-observability.md).
+4. **Durable evidence before high-risk execution (§11):** If the logging/observability pipeline cannot durably record required ACR events, the system MUST prevent high-risk protected execution, record the failure through an alternate durable mechanism if available, and transition affected action classes to the documented safe-state if required evidence cannot be preserved. Asynchronous export is permitted only without bypassing this requirement.
+5. **Integrity (§18):** High-risk events MUST be stored in tamper-evident or append-only form. Hash-chaining is one possible implementation.
+6. **Completeness and linkage (§18):** MUST log all actions and all decisions. Required records MUST include the fields listed above, and correlation identifiers or equivalent linkage MUST connect the full action chain. Fields may be mapped to an equivalent implementation schema; omitting required evidence is not an equivalent mapping.
+7. **Retention (§18):** MUST retain all ACR events at least 90 days and high-risk agent events at least 13 months.
+8. **Privacy and export (§18):** MUST apply privacy-preserving treatment to sensitive fields, document field-category treatment (plaintext, redacted, hashed, tokenized, or omitted), and provide audit-ready export without manual reconstruction from unstructured logs.
 
 ## Versioning
 
@@ -116,7 +121,9 @@ Implementations SHOULD include `acr_version` in every event so consumers can rou
 
 ## Examples
 
-### Minimal `ai_inference` event
+### Illustrative `ai_inference` event
+
+Examples demonstrate the field layout, not a complete evidence package or validated implementation output.
 
 ```json
 {
@@ -124,6 +131,8 @@ Implementations SHOULD include `acr_version` in every event so consumers can rou
   "event_id": "550e8400-e29b-41d4-a716-446655440000",
   "event_type": "ai_inference",
   "timestamp": "2026-03-16T14:22:01Z",
+  "correlation_id": "trace-abc-123",
+  "decision": "allow",
   "agent": {
     "agent_id": "customer-support-01",
     "purpose": "customer_support"
@@ -153,6 +162,8 @@ Implementations SHOULD include `acr_version` in every event so consumers can rou
   "event_type": "containment_action",
   "timestamp": "2026-03-16T14:25:00Z",
   "correlation_id": "trace-xyz-789",
+  "decision": "deny",
+  "policies": [{"policy_id": "drift-containment", "decision": "deny"}],
   "agent": {
     "agent_id": "customer-support-01",
     "purpose": "customer_support"

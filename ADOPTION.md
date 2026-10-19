@@ -17,15 +17,19 @@ This document explains how to adopt the ACR Framework, how to claim alignment, h
 
 > Aligned to ACR Runtime Control Plane Standard v1.0.1, §23 (Conformance Requirements).
 > Conformance is cumulative: each level builds on the previous one. A system claiming
-> Level 3 must satisfy all requirements from all three levels.
+> Level 3 must satisfy all requirements from all three levels. These summaries do not replace the normative PDF; see [source precedence and document versions](docs/README.md#normative-source-and-document-versions).
 
 | Level | Name | Criteria |
 |-------|------|----------|
-| **Level 1** | Observability | Action and decision logging; correlation identifiers; agent identity and purpose records; audit export capability; minimum retention enforcement. |
+| **Level 1** | Observability | Action and decision logging; correlation identifiers; agent identity and purpose records; policy decision records; audit export capability; minimum retention enforcement. |
 | **Level 2** | Enforcement | Level 1 plus mandatory pre-execution control; deny-by-default behavior; identity and purpose binding; executor-side verification; containment with kill path. |
 | **Level 3** | Full Runtime Control Plane Compliance | Levels 1–2 plus three-boundary enforcement; four-state decision model (ALLOW, DENY, MODIFY, ESCALATE); drift detection with thresholded response; STRIKE traceability matrix; quarterly containment testing. |
 
-**Claiming a level:** You may state that your system is "ACR Level 1 (or 2 or 3) conformant" if it meets the criteria above for the declared scope: evaluated system boundary, protected execution scope, covered agents and action classes, implementation version, and assessment date. A formal conformance statement needs all five. Implementation details can vary (see [Implementation Guide](docs/guides/acr-implementation-guide.md)). We encourage documenting which pillars and patterns you use.
+**Claiming a level:** A claim MUST identify the evaluated system boundary, protected execution scope, covered agents and action classes, conformance level, and the date and version of the evaluated implementation. The claimant MUST retain the complete supporting evidence package. The criteria above are a summary; assess the applicable normative requirements and verification criteria, not this table alone.
+
+**Level 1 limitation:** Level 1 does not require mandatory pre-execution blocking for all protected actions, but the claim MUST identify every execution path outside enforcement scope. An observability-only Level 1 claim does not establish controlled execution or Level 3 full runtime control-plane compliance.
+
+Implementation details can vary (see [Implementation Guide](docs/guides/acr-implementation-guide.md)), but implementation choices cannot waive the applicable normative requirements.
 
 ---
 
@@ -83,7 +87,11 @@ If we release an official logo (e.g. in `docs/images/` or a branding repo), you 
 
 ## Citation
 
-For papers, reports, and standards:
+Identify what you are citing: the repository/framework, the normative PDF, or an evaluated software implementation. These have separate version identities. The examples below cite the framework repository; `1.0` is its legacy framework label, not the v1.0.1 normative PDF or a software conformance claim. For reproducible software references, include the exact evaluated commit and assessment date.
+
+For the normative document, cite: **ACR Runtime Control Plane Standard, Version 1.0.1, 2026-03-29, runtimecontrol.io**, with the specific PDF artifact used for assessment. Do not infer a normative PDF revision from a similarly named software tag.
+
+For papers and reports citing the framework repository:
 
 **BibTeX:**
 
