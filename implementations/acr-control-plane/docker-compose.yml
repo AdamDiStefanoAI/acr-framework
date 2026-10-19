@@ -62,7 +62,13 @@ services:
       - "--log-format=json"
       - "/policies"
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8181/health"]
+      # The official OPA image contains /opa, not wget or a shell.
+      test:
+        - CMD
+        - /opa
+        - eval
+        - --fail
+        - 'http.send({"method": "GET", "url": "http://127.0.0.1:8181/health", "timeout": "2s"}).status_code == 200'
       interval: 5s
       timeout: 3s
       retries: 10
@@ -142,6 +148,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       OPA_URL: http://opa:8181
       KILLSWITCH_URL: http://acr-killswitch:8443
+      KILLSWITCH_SECRET: ${KILLSWITCH_SECRET:-killswitch_dev_secret_change_me}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_jwt_secret_change_in_production}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_TOKEN_EXPIRE_MINUTES: ${JWT_TOKEN_EXPIRE_MINUTES:-30}
@@ -157,6 +164,7 @@ services:
       EXECUTE_ALLOWED_ACTIONS: ${EXECUTE_ALLOWED_ACTIONS:-false}
       TOOL_EXECUTOR_MAP_JSON: ${TOOL_EXECUTOR_MAP_JSON:-}
       EXECUTOR_HMAC_SECRET: ${EXECUTOR_HMAC_SECRET:-}
+      EXECUTOR_CREDENTIAL_SECRET: ${EXECUTOR_CREDENTIAL_SECRET:-}
       EXECUTOR_TIMEOUT_SECONDS: ${EXECUTOR_TIMEOUT_SECONDS:-8.0}
       WEB_CONCURRENCY: ${GATEWAY_WORKERS:-2}
     depends_on:

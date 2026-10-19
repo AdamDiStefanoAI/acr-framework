@@ -1,0 +1,35 @@
+# TEST ONLY. Requires Compose >=2.24.4 for !override.
+# Extends the real deployment Compose file; no privileged containers or host mounts.
+services:
+  postgres:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  opa:
+    ports: !reset []
+  acr-killswitch:
+    ports: !reset []
+  acr-gateway:
+    ports: !override ["127.0.0.1:8000:8000"]
+    environment:
+      EXECUTE_ALLOWED_ACTIONS: "true"
+      TOOL_EXECUTOR_MAP_JSON: '{"query_customer_db":"http://protected-executor:8010/execute","issue_refund":"http://protected-executor:8010/execute","delete_customer":"http://protected-executor:8010/execute"}'
+    depends_on:
+      protected-executor:
+        condition: service_started
+  protected-executor:
+    build:
+      context: .
+      dockerfile: examples/protected_executor/Dockerfile
+    command: ["uvicorn", "examples.full_stack_fixture:app", "--host", "0.0.0.0", "--port", "8010", "--workers", "1"]
+    ports: ["127.0.0.1:8010:8010"]
+    environment:
+      EXECUTOR_HMAC_SECRET: ${EXECUTOR_HMAC_SECRET:?required}
+      EXECUTOR_CREDENTIAL_SECRET: ${EXECUTOR_CREDENTIAL_SECRET:?required}
+      PROTECTED_EXECUTOR_ALLOWED_TOOLS: query_customer_db,issue_refund,delete_customer
+      ACR_ENV: test
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
