@@ -402,4 +402,3 @@ If the answer is "the prompt," "the app code," or "we’d catch it in logs," thi
 Apache 2.0. See [LICENSE](LICENSE).
 
 Based on the [ACR Framework specification](https://github.com/AdamDiStefanoAI/acr-standard).
-
