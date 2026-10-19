@@ -6,7 +6,8 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from acr.common.errors import InvalidExecutionAuthorizationError
+from acr.config import settings
+from acr.gateway.executor_auth import build_brokered_execution_credential, build_execution_headers
 from examples.protected_executor import app as executor_example
 from examples.protected_executor.app import app
 
@@ -48,15 +49,59 @@ def test_executor_exposes_only_configured_tools(monkeypatch) -> None:
 def test_executor_denies_execution_without_gateway_credentials(monkeypatch) -> None:
     tool = Mock()
     monkeypatch.setitem(executor_example._ALLOWED_TOOLS, "query_customer_db", tool)
-    with (
-        TestClient(app) as client,
-        pytest.raises(
-            InvalidExecutionAuthorizationError, match="X-ACR-Execution-Token header is required"
-        ),
-    ):
-        client.post(
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
             "/execute",
             json={"tool_name": "query_customer_db", "parameters": {"customer_id": "C-12345"}},
         )
 
+    assert response.status_code == 401
+    assert response.json() == {
+        "error_code": "INVALID_EXECUTION_AUTHORIZATION",
+        "message": "X-ACR-Execution-Token header is required",
+    }
     tool.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "case", ["allowed", "missing-brokered", "tampered-payload", "invalid-token"]
+)
+def test_executor_verifies_real_credentials_before_tool_execution(monkeypatch, case) -> None:
+    monkeypatch.setattr(settings, "executor_hmac_secret", "test-execution-secret-" * 4)
+    monkeypatch.setattr(settings, "executor_credential_secret", "test-credential-secret-" * 4)
+    monkeypatch.setenv("PROTECTED_EXECUTOR_ALLOWED_TOOLS", "query_customer_db")
+    tool = Mock(return_value={"customer_id": "C-12345"})
+    monkeypatch.setitem(executor_example._ALLOWED_TOOLS, "query_customer_db", tool)
+    payload = {"tool_name": "query_customer_db", "parameters": {"customer_id": "C-12345"}}
+    headers = build_execution_headers(
+        agent_id="executor-test",
+        tool_name="query_customer_db",
+        payload=payload,
+        correlation_id="executor-test-call",
+    )
+    headers["X-ACR-Brokered-Credential"] = build_brokered_execution_credential(
+        agent_id="executor-test",
+        tool_name="query_customer_db",
+        correlation_id="executor-test-call",
+        audience="tool:query_customer_db",
+        scopes=["tool:query_customer_db:execute"],
+    )
+    headers["X-ACR-Credential-Audience"] = "tool:query_customer_db"
+    if case == "missing-brokered":
+        headers.pop("X-ACR-Brokered-Credential")
+    elif case == "tampered-payload":
+        payload["parameters"]["customer_id"] = "C-99999"
+    elif case == "invalid-token":
+        headers["X-ACR-Execution-Token"] = "invalid"
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post("/execute", json=payload, headers=headers)
+
+    if case == "allowed":
+        assert response.status_code == 200
+        assert response.json()["status"] == "executed"
+        tool.assert_called_once_with(customer_id="C-12345")
+    else:
+        assert response.status_code == 401
+        assert response.json()["error_code"] == "INVALID_EXECUTION_AUTHORIZATION"
+        tool.assert_not_called()

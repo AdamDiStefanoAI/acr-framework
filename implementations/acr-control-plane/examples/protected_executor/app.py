@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 
+from acr.common.errors import ACRError
 from acr.gateway.executor_auth import (
     BrokeredExecutionCredential,
     ExecutionAuthorization,
@@ -18,6 +20,15 @@ from examples.sample_agent.tools import (
 )
 
 app = FastAPI(title="ACR Protected Executor")
+
+
+@app.exception_handler(ACRError)
+async def acr_error_handler(request: Request, exc: ACRError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error_code": exc.error_code, "message": exc.message},
+    )
+
 
 _ALLOWED_TOOLS = {
     "query_customer_db": query_customer_db,
@@ -60,11 +71,15 @@ async def execute(
     if tool_name != auth.tool_name:
         raise HTTPException(status_code=403, detail="Execution token does not authorize this tool")
     if tool_name != brokered.tool_name or auth.agent_id != brokered.agent_id:
-        raise HTTPException(status_code=403, detail="Brokered credential does not match execution authorization")
+        raise HTTPException(
+            status_code=403, detail="Brokered credential does not match execution authorization"
+        )
 
     tool = _exposed_tools().get(tool_name)
     if tool is None:
-        raise HTTPException(status_code=403, detail=f"Tool '{tool_name}' is not exposed by this executor")
+        raise HTTPException(
+            status_code=403, detail=f"Tool '{tool_name}' is not exposed by this executor"
+        )
 
     parameters = payload.get("parameters") or {}
     if not isinstance(parameters, dict):
