@@ -21,7 +21,7 @@ This project adheres to a code of conduct. By participating, you are expected to
 ### Contribution Process
 
 1. **Review existing issues**
-   Check [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-standard/issues) to see if your idea is already being discussed. Use Issues for questions and design proposals too; GitHub Discussions is not currently enabled.
+   Check [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-standard/issues) to see if your idea is already being discussed. Use Issues for questions and design proposals too.
 
 2. **Open an issue**
    Describe your proposed contribution, the problem it addresses, and how it aligns with ACR principles. For large changes, discuss the approach before submitting a pull request.

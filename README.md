@@ -318,6 +318,10 @@ The control plane is a reference implementation for evaluation and contribution.
 - ✅ 160+ unit tests, evidence-bundle integration tests
 - 📋 [Roadmap](./ROADMAP.md) · [Changelog](./CHANGELOG.md) · [Adoption guide](./ADOPTION.md)
 
+## Captured runtime evidence
+
+See the [evidence walkthrough](docs/evidence-walkthrough.md) for actual synthetic allow/deny responses, observed execution counts, and a captured ALLOW event/export. The missing DENY event/export is explicitly identified.
+
 ## Contributing
 
 Start with the [coding contribution guide](CONTRIBUTING.md#code-contributions) for setup, tests, and the repository map. Use [GitHub Issues](https://github.com/AdamDiStefanoAI/acr-standard/issues) for questions, bugs, and design proposals. We welcome focused PRs. See [`CONTRIBUTING.md`](./CONTRIBUTING.md), [`GOVERNANCE.md`](./GOVERNANCE.md), and [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md). Security issues: [`SECURITY.md`](./SECURITY.md).
