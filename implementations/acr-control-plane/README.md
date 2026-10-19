@@ -186,8 +186,10 @@ curl http://localhost:8000/acr/health
 Expected:
 
 ```json
-{"status":"healthy","version":"1.0","env":"development"}
+{"status":"healthy","version":"1.1.0","env":"development"}
 ```
+
+The health response `version` is configured runtime metadata (`settings.acr_version`), not the installed package version or a conformance declaration. The ordinary Compose image currently defaults to `1.1.0`; package releases are tracked separately.
 
 ### 3. Open the operator console
 
@@ -239,7 +241,7 @@ These are diagnostic checks for the documented local Compose path, not a claim t
 | Gateway health request fails | Gateway may still be starting, migrations may have failed, or a dependency may be unhealthy. | Run `docker compose ps -a` and `docker compose logs --tail=100 acr-migrate acr-gateway postgres redis opa`; resolve the reported failure, then retry `curl --fail http://localhost:8000/acr/health`. |
 | Operator request returns 401 | The configured operator key and client key may differ, or environment variables were set in another shell. | Follow the sample-agent setup, keep the local key consistent and recreate the affected demo containers after environment changes (`docker compose restart` does not apply new environment values). Never paste production secrets into an issue. |
 
-The disposable full-stack CI run validates its own fixture/override setup; it is not a clean-machine test of every instruction above. A fresh ordinary README walkthrough remains tracked in [#22](https://github.com/AdamDiStefanoAI/acr-standard/issues/22).
+The disposable full-stack CI run validates its own fixture/override setup. A separate fresh-runner check follows the ordinary README path; see the [newcomer validation record](../../docs/newcomer-validation.md) for the successful run, original failures and host/browser limitations.
 
 See the [captured evidence walkthrough](../../docs/evidence-walkthrough.md) for real synthetic allow/deny responses, observed tool effects, and the limits of the captured audit chain.
 

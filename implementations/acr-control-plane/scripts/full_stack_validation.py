@@ -1,4 +1,4 @@
-"""Draft full-stack HTTP acceptance checks; requires a disposable Compose project.
+"""Full-stack HTTP acceptance checks; requires a disposable Compose project.
 No imports from ACR, dependency overrides, mocks, LLM, or real enterprise tools.
 """
 
@@ -154,6 +154,57 @@ def jwt(claims, secret):
     return (signing + b"." + signature).decode()
 
 
+def capture_evidence(correlation, expected, tool, parameters, prefix=""):
+    """Retain a real persisted decision and its checksum-verified export."""
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        status, body, _, _ = request("GET", "/acr/events/" + correlation, headers=OPERATOR)
+        if status == 200 and isinstance(body, list) and body:
+            break
+        time.sleep(1)
+    assert status == 200 and isinstance(body, list) and body, (
+        f"No audit event persisted for {expected} action"
+    )
+    assert any(
+        event.get("request", {}).get("request_id") == correlation
+        and event.get("agent", {}).get("agent_id") == AGENT
+        and event.get("output", {}).get("decision") == expected
+        and event.get("request", {}).get("tool_name") == tool
+        and event.get("request", {}).get("parameters") == parameters
+        for event in body
+    )
+    (OUT / f"{prefix}event-chain.json").write_text(json.dumps(body, indent=2))
+    status, _, raw, headers = request("GET", "/acr/evidence/" + correlation, headers=OPERATOR)
+    assert status == 200 and raw
+    (OUT / f"{prefix}evidence-bundle.zip").write_bytes(raw)
+    advertised = next(
+        (v for k, v in headers.items() if k.lower() == "x-evidence-bundle-sha256"), None
+    )
+    assert hashlib.sha256(raw).hexdigest() == advertised
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        events = [json.loads(line) for line in archive.read("events.jsonl").splitlines()]
+        assert events == body, "Exported events differ from the fetched durable chain"
+        assert manifest["correlation_id"] == correlation and manifest["agent_id"] == AGENT
+        assert manifest["event_count"] == len(events) > 0 and expected in manifest["decisions"]
+        assert any(
+            event.get("request", {}).get("request_id") == correlation
+            and event.get("agent", {}).get("agent_id") == AGENT
+            and event.get("output", {}).get("decision") == expected
+            and event.get("request", {}).get("tool_name") == tool
+            and event.get("request", {}).get("parameters") == parameters
+            for event in events
+        )
+        checked = set()
+        for line in archive.read("checksums.sha256").decode().splitlines():
+            digest, name = line.split(maxsplit=1)
+            assert name in {"manifest.json", "events.jsonl"}
+            assert name not in checked
+            checked.add(name)
+            assert hashlib.sha256(archive.read(name)).hexdigest() == digest
+        assert checked == {"manifest.json", "events.jsonl"}
+
+
 def run():
     global auth
     # Unauthorized caller must not register an agent.
@@ -175,7 +226,14 @@ def run():
     # Never print or persist the JWT.
     auth = {"Authorization": "Bearer " + body["access_token"]}
     decision("allow", "allow")
-    decision("deny", "deny", tool="delete_customer")
+    denied = decision("deny", "deny", tool="delete_customer")
+    denied_ledger = ledger()
+    capture_evidence(
+        denied["correlation_id"], "deny", "delete_customer", {"customer_id": "C-12345"},
+        prefix="deny-",
+    )
+    assert ledger() == denied_ledger, "Evidence retrieval must not execute a denied tool"
+    (OUT / "deny-ledger.json").write_text(json.dumps(denied_ledger, indent=2))
     original = "synthetic-person@example.invalid"
     modified = decision("modify", "modify", {"customer_id": original})
     executed = ledger()[-1]["parameters"]
@@ -311,46 +369,9 @@ def run():
     else:
         raise AssertionError("containment restore did not recover")
     decision("restored", "allow")
-    # Check durable event chain and checksum of exported evidence for one allow.
-    correlation = correlations[-1]
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline:
-        status, body, _, _ = request("GET", "/acr/events/" + correlation, headers=OPERATOR)
-        if status == 200 and isinstance(body, list) and body:
-            break
-        time.sleep(1)
-    assert status == 200 and isinstance(body, list) and body, (
-        "No audit event persisted for restored action"
+    capture_evidence(
+        correlations[-1], "allow", "query_customer_db", {"customer_id": "C-12345"}
     )
-    assert any(
-        event.get("request", {}).get("request_id") == correlation
-        and event.get("agent", {}).get("agent_id") == AGENT
-        and event.get("output", {}).get("decision") == "allow"
-        for event in body
-    )
-    (OUT / "event-chain.json").write_text(json.dumps(body, indent=2))
-    status, _, raw, headers = request("GET", "/acr/evidence/" + correlation, headers=OPERATOR)
-    assert status == 200 and raw
-    advertised = next(
-        (v for k, v in headers.items() if k.lower() == "x-evidence-bundle-sha256"), None
-    )
-    assert hashlib.sha256(raw).hexdigest() == advertised
-    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-        manifest = json.loads(archive.read("manifest.json"))
-        events = [json.loads(line) for line in archive.read("events.jsonl").splitlines()]
-        assert manifest["correlation_id"] == correlation and manifest["agent_id"] == AGENT
-        assert manifest["event_count"] == len(events) > 0 and "allow" in manifest["decisions"]
-        assert any(
-            event.get("request", {}).get("request_id") == correlation
-            and event.get("agent", {}).get("agent_id") == AGENT
-            and event.get("output", {}).get("decision") == "allow"
-            for event in events
-        )
-        for line in archive.read("checksums.sha256").decode().splitlines():
-            digest, name = line.split(maxsplit=1)
-            assert name in {"manifest.json", "events.jsonl"}
-            assert hashlib.sha256(archive.read(name)).hexdigest() == digest
-    (OUT / "evidence-bundle.zip").write_bytes(raw)
     (OUT / "ledger.json").write_text(json.dumps(ledger(), indent=2))
     print("PASS: real full-stack checks; enterprise side effects are synthetic fixture only")
 

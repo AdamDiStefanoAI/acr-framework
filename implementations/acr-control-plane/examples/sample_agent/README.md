@@ -49,10 +49,12 @@ The sample now uses the official Python SDK:
 |---|---|---|
 | 1 | Register agent | 201 Created |
 | 2a | `query_customer_db` | ✓ allow |
-| 2b | `send_email` | ✓ allow |
+| 2b | `send_email` | ~ modify (email address redacted by output controls) |
 | 2c | `create_ticket` | ✓ allow |
 | 3 | `delete_customer` | ✗ deny (Pillar 2: forbidden tool) |
 | 4 | `issue_refund $250` | ⏳ escalate (Pillar 6: approval required) |
+
+The default sample email includes a synthetic email address, so output controls return `modify`. This is a decision demonstration: the ordinary configuration has `EXECUTE_ALLOWED_ACTIONS=false`, and does not send email or execute real downstream tools.
 
 After running, check:
 - Telemetry: `GET http://localhost:8000/acr/events?agent_id=customer-support-01`

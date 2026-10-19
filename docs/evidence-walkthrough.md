@@ -4,10 +4,10 @@ This walkthrough uses actual captured output from a disposable GitHub-hosted tes
 
 ## Source and boundaries
 
-- [Successful run 39191938094](https://github.com/AdamDiStefanoAI/acr-standard/actions/runs/39191938094), attempt 1, completed 2026-10-19 02:53 UTC.
-- PR head: `f1672e46196e634eea5c6a9941431dbadaf7e564`.
-- Checked-out test merge revision recorded by the artifact: `00be86175c538b75a16beb712d8d9ca6dbad0e30`.
-- Source artifact: `acr-full-stack-39191938094-1` (ID `12160242218`), retained for one day. The selected observations below are preserved here because the full artifact expires.
+- [Successful run 39208172924](https://github.com/AdamDiStefanoAI/acr-standard/actions/runs/39208172924), attempt 1, completed 2026-10-19 06:10 UTC.
+- PR head: `f103b0de688e5ae8127e91b08de74e925a98e72d`.
+- Checked-out test merge revision recorded by the artifact: `199e06c75ded30bd568860065fdf1715f88a8b9f`.
+- Source artifact: `acr-full-stack-39208172924-1` (ID `12166790456`), retained for one day. The selected observations below are preserved here because the full artifact expires.
 - These are selected complete observation objects from `observations.json`, plus the captured event and bundle manifest. No field values below were invented or rewritten. Other cases and service logs are omitted.
 
 This is a bounded test result, not production certification or full conformance. Checksums establish content consistency; this walkthrough does not independently verify the HMAC signature. It does not prove executor replay/concurrency protection, all containment tiers, a 30-second kill SLA, or high-risk durable-log failure gating.
@@ -22,7 +22,7 @@ The HTTP response says allow. The independent fixture ledger moves from zero ent
   "status": 200,
   "response": {
     "decision": "allow",
-    "correlation_id": "cea76ec7-8a5f-41d2-bd94-06986f833c39",
+    "correlation_id": "e732ad1b-f978-4bbf-8735-972993ec4588",
     "policy_decisions": [
       {
         "policy_id": "acr-allow",
@@ -39,7 +39,7 @@ The HTTP response says allow. The independent fixture ledger moves from zero ent
       "authorized_by": "acr-control-plane",
       "agent_id": "full-stack-ci",
       "tool_name": "query_customer_db",
-      "correlation_id": "cea76ec7-8a5f-41d2-bd94-06986f833c39",
+      "correlation_id": "e732ad1b-f978-4bbf-8735-972993ec4588",
       "approval_request_id": null,
       "credential_audience": "tool:query_customer_db",
       "credential_scopes": [
@@ -78,7 +78,7 @@ The next request is forbidden. HTTP 403 and the policy reasons explain the refus
   "status": 403,
   "response": {
     "decision": "deny",
-    "correlation_id": "2456683b-3d57-49fd-90f8-689ccdc5f288",
+    "correlation_id": "e3cb0109-4764-424d-8648-f847958771c6",
     "reason": "Customer deletion is a forbidden operation for support agents; Forbidden tool: delete_customer",
     "policy_decisions": [
       {
@@ -99,7 +99,139 @@ The next request is forbidden. HTTP 403 and the policy reasons explain the refus
 }
 ```
 
-The denied request has its own correlation ID. The retained artifact does **not** contain that request's persisted telemetry event or exported archive. Therefore this walkthrough does not claim a complete DENY audit chain. Capturing and checking that chain remains work under [issue #25](https://github.com/AdamDiStefanoAI/acr-standard/issues/25).
+The denied request has its own correlation ID. Immediately after the denial, the harness fetched its persisted event and exported archive using the disposable operator fixture. It checked the correlation ID, agent, denied tool and original parameters in both; the exported event list exactly matched the fetched chain. The execution ledger was unchanged before and after evidence retrieval.
+
+Captured `deny-event-chain.json`:
+
+```json
+[
+  {
+    "agent": {
+      "purpose": "Disposable full-stack checks",
+      "version": null,
+      "agent_id": "full-stack-ci",
+      "agent_name": null,
+      "capabilities": [
+        "query_customer_db",
+        "issue_refund"
+      ],
+      "identity_token_hash": null
+    },
+    "custom": {
+      "cost_basis": "authorization_estimate",
+      "estimated_cost_usd": 0.0,
+      "authoritative_hourly_spend_usd": 0.0
+    },
+    "output": {
+      "reason": "Customer deletion is a forbidden operation for support agents; Forbidden tool: delete_customer",
+      "decision": "deny",
+      "filtered": false,
+      "filter_reason": null,
+      "approval_request_id": null,
+      "modified_parameters": null
+    },
+    "request": {
+      "intent": {},
+      "context": {},
+      "tool_name": "delete_customer",
+      "parameters": {
+        "customer_id": "C-12345"
+      },
+      "request_id": "e3cb0109-4764-424d-8648-f847958771c6",
+      "session_id": null,
+      "description": null
+    },
+    "event_id": "49ae2d9f-1582-4e69-b591-57b02ce056aa",
+    "metadata": {
+      "integrity": {
+        "payload_sha256": "d4752e901c1ca24a9f5761ba276282fc87d3ec06cdc368115362c610ad87726f",
+        "record_signature": "440d8d4c30eb4748b66b35329961c00ca10341ff1bef55767898bb6a7e18a61e",
+        "signature_algorithm": "hmac-sha256",
+        "previous_event_sha256": null
+      },
+      "drift_score": null,
+      "environment": "development",
+      "anomaly_flags": [],
+      "compliance_tags": [],
+      "acr_control_plane": {
+        "version": "1.1.0",
+        "enforcement_point": "gateway"
+      }
+    },
+    "policies": [
+      {
+        "reason": "Customer deletion is a forbidden operation for support agents",
+        "decision": "deny",
+        "policy_id": "acr-deny-0",
+        "latency_ms": 28,
+        "policy_name": null,
+        "triggered_rules": []
+      },
+      {
+        "reason": "Forbidden tool: delete_customer",
+        "decision": "deny",
+        "policy_id": "acr-deny-1",
+        "latency_ms": 28,
+        "policy_name": null,
+        "triggered_rules": []
+      }
+    ],
+    "execution": {
+      "end_time": "2026-10-19T06:09:51.220279+00:00",
+      "start_time": "2026-10-19T06:09:51.184751+00:00",
+      "duration_ms": 35,
+      "latency_breakdown": {
+        "drift_ms": null,
+        "total_ms": 35,
+        "policy_ms": 29,
+        "identity_ms": 4,
+        "output_filter_ms": null
+      }
+    },
+    "timestamp": "2026-10-19T06:09:51.221323+00:00",
+    "event_type": "policy_decision",
+    "acr_version": "1.1.0"
+  }
+]
+```
+
+The matching DENY export manifest:
+
+```json
+{
+  "agent_id": "full-stack-ci",
+  "bundle_type": "acr-evidence-bundle",
+  "correlation_id": "e3cb0109-4764-424d-8648-f847958771c6",
+  "decisions": [
+    "deny"
+  ],
+  "event_count": 1,
+  "event_types": [
+    "policy_decision"
+  ],
+  "generated_at": "2026-10-19T06:09:51.279842+00:00",
+  "integrity": {
+    "chain_valid": true,
+    "invalid_reasons": [],
+    "root_event_sha256": "d4752e901c1ca24a9f5761ba276282fc87d3ec06cdc368115362c610ad87726f",
+    "signed_events": 1,
+    "verified_events": 1
+  },
+  "time_range": {
+    "end": "2026-10-19T06:09:51.221323+00:00",
+    "start": "2026-10-19T06:09:51.221323+00:00"
+  }
+}
+```
+
+The archive SHA-256 is `8651f574961b5f58a7b721d0f3cde303be895baa7848ce1bf9f54c5efb93a24d`. Its `checksums.sha256` contains:
+
+```text
+ec2f7b93aa09e6a459a6e44b3bbf10a26d650413e2caa6476c401181668dde42  manifest.json
+733b8c9d02a4ede253544f5f3dd48bf3ac8145eec68d13cd887f608e42f0e532  events.jsonl
+```
+
+The harness required both manifest and event checksum entries and verified each. These checks establish artifact consistency, not independent authentication of the signing identity.
 
 ## 3. Follow the captured ALLOW correlation ID
 
@@ -111,7 +243,7 @@ The harness exports evidence after outage and containment restoration, using a l
   "status": 200,
   "response": {
     "decision": "allow",
-    "correlation_id": "13005686-2d6a-4872-a40d-dc032be33648",
+    "correlation_id": "057ba3aa-1158-4749-94f8-751f1d89fa4e",
     "policy_decisions": [
       {
         "policy_id": "acr-allow",
@@ -120,7 +252,7 @@ The harness exports evidence after outage and containment restoration, using a l
       }
     ],
     "drift_score": null,
-    "latency_ms": 10,
+    "latency_ms": 8,
     "estimated_cost_usd": 0.0,
     "authoritative_hourly_spend_usd": 0.0,
     "execution_result": {
@@ -128,7 +260,7 @@ The harness exports evidence after outage and containment restoration, using a l
       "authorized_by": "acr-control-plane",
       "agent_id": "full-stack-ci",
       "tool_name": "query_customer_db",
-      "correlation_id": "13005686-2d6a-4872-a40d-dc032be33648",
+      "correlation_id": "057ba3aa-1158-4749-94f8-751f1d89fa4e",
       "approval_request_id": null,
       "credential_audience": "tool:query_customer_db",
       "credential_scopes": [
@@ -193,15 +325,15 @@ The captured `event-chain.json` contains this event. Match `request.request_id` 
       "parameters": {
         "customer_id": "C-12345"
       },
-      "request_id": "13005686-2d6a-4872-a40d-dc032be33648",
+      "request_id": "057ba3aa-1158-4749-94f8-751f1d89fa4e",
       "session_id": null,
       "description": null
     },
-    "event_id": "3bb3a9c0-185f-4177-b335-e8a60eb1407d",
+    "event_id": "3e5cb45d-ce3a-4243-99f8-2349c797539a",
     "metadata": {
       "integrity": {
-        "payload_sha256": "f45d8965b050a7b06c780b43168b17a8319dbb8ea5ffe4b76668d7a1ead4be4f",
-        "record_signature": "e4fafec548207eb3b993dc0030ae98f2f59da62534609a6b4a1e18d77575b91e",
+        "payload_sha256": "43e820ea99014703b0b0e96204093ef3548cbd10a9bff5bf12b2944a8d3ec947",
+        "record_signature": "d44f106dff1e72975a8ba6bbfa50bb6c3fb749b8f76ef7384195bf9d9aa2ccbe",
         "signature_algorithm": "hmac-sha256",
         "previous_event_sha256": null
       },
@@ -219,24 +351,24 @@ The captured `event-chain.json` contains this event. Match `request.request_id` 
         "reason": null,
         "decision": "allow",
         "policy_id": "acr-allow",
-        "latency_ms": 3,
+        "latency_ms": 5,
         "policy_name": null,
         "triggered_rules": []
       }
     ],
     "execution": {
-      "end_time": "2026-10-19T02:53:49.614925+00:00",
-      "start_time": "2026-10-19T02:53:49.604158+00:00",
-      "duration_ms": 10,
+      "end_time": "2026-10-19T06:10:04.606984+00:00",
+      "start_time": "2026-10-19T06:10:04.598111+00:00",
+      "duration_ms": 8,
       "latency_breakdown": {
         "drift_ms": null,
-        "total_ms": 10,
-        "policy_ms": 3,
-        "identity_ms": 5,
+        "total_ms": 8,
+        "policy_ms": 5,
+        "identity_ms": 1,
         "output_filter_ms": null
       }
     },
-    "timestamp": "2026-10-19T02:53:49.624923+00:00",
+    "timestamp": "2026-10-19T06:10:04.617197+00:00",
     "event_type": "ai_inference",
     "acr_version": "1.1.0"
   }
@@ -253,7 +385,7 @@ The captured ZIP contains `manifest.json`, `events.jsonl`, `checksums.sha256`, a
 {
   "agent_id": "full-stack-ci",
   "bundle_type": "acr-evidence-bundle",
-  "correlation_id": "13005686-2d6a-4872-a40d-dc032be33648",
+  "correlation_id": "057ba3aa-1158-4749-94f8-751f1d89fa4e",
   "decisions": [
     "allow"
   ],
@@ -261,17 +393,17 @@ The captured ZIP contains `manifest.json`, `events.jsonl`, `checksums.sha256`, a
   "event_types": [
     "ai_inference"
   ],
-  "generated_at": "2026-10-19T02:53:50.667099+00:00",
+  "generated_at": "2026-10-19T06:10:04.636694+00:00",
   "integrity": {
     "chain_valid": true,
     "invalid_reasons": [],
-    "root_event_sha256": "f45d8965b050a7b06c780b43168b17a8319dbb8ea5ffe4b76668d7a1ead4be4f",
+    "root_event_sha256": "43e820ea99014703b0b0e96204093ef3548cbd10a9bff5bf12b2944a8d3ec947",
     "signed_events": 1,
     "verified_events": 1
   },
   "time_range": {
-    "end": "2026-10-19T02:53:49.624923+00:00",
-    "start": "2026-10-19T02:53:49.624923+00:00"
+    "end": "2026-10-19T06:10:04.617197+00:00",
+    "start": "2026-10-19T06:10:04.617197+00:00"
   }
 }
 ```
@@ -282,4 +414,4 @@ The harness checked the downloaded archive hash and member checksums, and matche
 
 See [the full-stack validation guide](../implementations/acr-control-plane/docs/full-stack-validation.md) and the [workflow](../.github/workflows/acr-full-stack-validation.yml) for the exact disposable setup. A new run produces different identifiers and timestamps. Preserve the original failure when a run fails; do not substitute the successful values printed here.
 
-To finish issue #25, extend the safe capture to retrieve and verify the DENY correlation's event and archive as well, then document those actual results. Never export real credentials or customer data into a public example.
+Both the captured ALLOW and DENY chains above use synthetic inputs from the pinned run. Re-run the workflow to obtain your own identifiers and archives. Never export real credentials or customer data into a public example.
