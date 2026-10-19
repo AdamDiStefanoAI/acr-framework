@@ -280,6 +280,6 @@ The harness checked the downloaded archive hash and member checksums, and matche
 
 ## Reproduce and extend
 
-See [the full-stack validation guide](../implementations/acr-control-plane/docs/full-stack-validation.md) and its linked workflow for the exact disposable setup. A new run produces different identifiers and timestamps. Preserve the original failure when a run fails; do not substitute the successful values printed here.
+See [the full-stack validation guide](../implementations/acr-control-plane/docs/full-stack-validation.md) and the [workflow](../.github/workflows/acr-full-stack-validation.yml) for the exact disposable setup. A new run produces different identifiers and timestamps. Preserve the original failure when a run fails; do not substitute the successful values printed here.
 
 To finish issue #25, extend the safe capture to retrieve and verify the DENY correlation's event and archive as well, then document those actual results. Never export real credentials or customer data into a public example.
