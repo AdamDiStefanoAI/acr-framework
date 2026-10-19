@@ -1,0 +1,59 @@
+name: ACR public README validation
+
+on:
+  pull_request:
+    branches: [main, example/runnable-langgraph-guard]
+    paths:
+      - 'README.md'
+      - 'implementations/acr-control-plane/**'
+      - '.github/scripts/acr-readme-validation.sh'
+      - '.github/workflows/acr-readme-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: acr-readme-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  readme-path:
+    # A separate, disposable hosted runner, with no fixture services or caches.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: acr-readme-${{ github.run_id }}-${{ github.run_attempt }}
+      README_EVIDENCE: ${{ runner.temp }}/acr-readme-evidence
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Follow the public Compose and sample-agent instructions
+        timeout-minutes: 25
+        run: bash .github/scripts/acr-readme-validation.sh
+      - name: Ensure only this run's disposable resources are removed
+        if: always()
+        timeout-minutes: 2
+        working-directory: implementations/acr-control-plane
+        # Fallback if cancellation interrupted the script's own EXIT cleanup.
+        run: |
+          mkdir -p "$README_EVIDENCE"
+          set +e
+          printf '%s\n' 'docker compose down --volumes --remove-orphans' > "$README_EVIDENCE/fallback-teardown.log"
+          timeout --kill-after=10s 90s docker compose down --volumes --remove-orphans >> "$README_EVIDENCE/fallback-teardown.log" 2>&1
+          result=$?
+          printf 'exit_code=%s\n' "$result" >> "$README_EVIDENCE/fallback-teardown.log"
+          exit "$result"
+      - name: Retain bounded public-development evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: acr-readme-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/acr-readme-evidence/
+          retention-days: 1
+          if-no-files-found: error
