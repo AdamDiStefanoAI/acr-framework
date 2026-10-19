@@ -186,8 +186,10 @@ curl http://localhost:8000/acr/health
 Expected:
 
 ```json
-{"status":"healthy","version":"1.0","env":"development"}
+{"status":"healthy","version":"1.1.0","env":"development"}
 ```
+
+The health response `version` is configured runtime metadata (`settings.acr_version`), not the installed package version or a conformance declaration. The ordinary Compose image currently defaults to `1.1.0`; package releases are tracked separately.
 
 ### 3. Open the operator console
 

@@ -205,7 +205,7 @@ CURRENT_STAGE=health
 run required curl --max-time 20 http://localhost:8000/acr/health
 # Capture a clean JSON body, then check the README's stated response fields.
 run required curl --fail --silent --show-error --max-time 20 --output "$EVIDENCE/health.json" http://localhost:8000/acr/health
-run required python -c 'import json,sys; h=json.load(open(sys.argv[1])); assert h.get("status")=="healthy" and h.get("version")=="1.0" and h.get("env")=="development", h; print(h)' "$EVIDENCE/health.json"
+run required python -c 'import json,sys; h=json.load(open(sys.argv[1])); assert h.get("status")=="healthy" and h.get("version")=="1.1.0" and h.get("env")=="development", h; print(h)' "$EVIDENCE/health.json"
 
 CURRENT_STAGE=console-http
 run required curl --fail --location --silent --show-error --max-time 20 --dump-header "$EVIDENCE/console-headers.txt" --output "$EVIDENCE/console.html" http://localhost:8000/console

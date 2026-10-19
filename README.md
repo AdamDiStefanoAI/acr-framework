@@ -120,13 +120,15 @@ Migrations run automatically on startup (one-shot `acr-migrate` service). When t
 
 ```bash
 curl http://localhost:8000/acr/health
-# → {"status":"healthy","version":"1.0","env":"development"}
+# → {"status":"healthy","version":"1.1.0","env":"development"}
 
 # Open the operator console
 open http://localhost:8000/console
 #   Operator API key:    dev-operator-key
 #   Kill-switch secret:  killswitch_dev_secret_change_me
 ```
+
+The health response `version` is configured runtime metadata (`settings.acr_version`), not the installed package version or a conformance declaration. The ordinary Compose image currently defaults to `1.1.0`; package releases are tracked separately.
 
 That's it. You now have a working six-pillar control plane on your laptop.
 
