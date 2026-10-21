@@ -8,16 +8,18 @@ No Docker, no Postgres, no Redis. Install and run:
     python quickstart_no_docker.py
 
 The mock simulates the gateway's /acr/evaluate endpoint: it ALLOWS
-refund_customer and DENIES delete_customer, the way a real policy would.
-Swap the MockTransport for a real gateway URL when you are ready —
-the code above the "mock" line does not change.
+refund_customer and DENIES delete_customer using synthetic HTTP 200 responses.
+Counters inside the tool bodies verify one allowed call and zero denied calls.
+This checks local SDK guarding only, not real Rego policy decisions, persisted
+evidence, approvals, or the kill switch. For those, follow the documented
+Docker Compose quick start and register an agent with a real gateway.
 """
 
 from __future__ import annotations
 
 import httpx
 
-from acr.sdk import ACRClient, ACRAgentSession, ACRDeniedError, guard_tool
+from acr.sdk import ACRAgentSession, ACRClient, ACRDeniedError, guard_tool
 
 
 def _mock_gateway(request: httpx.Request) -> httpx.Response:
@@ -54,16 +56,19 @@ def main() -> None:
         operator_api_key="demo-key",
         client=httpx.Client(transport=transport, base_url="http://gateway.local"),
     )
-    session = ACRAgentSession(
-        client=client, agent_id="support-bot", access_token="demo-token"
-    )
+    session = ACRAgentSession(client=client, agent_id="support-bot", access_token="demo-token")
+
+    # Count executions inside the actual tool bodies, not in the wrappers.
+    tool_calls = {"refund_customer": 0, "delete_customer": 0}
 
     def refund_customer(customer_id: str, amount_usd: float) -> str:
         """Issue a refund to a customer."""
+        tool_calls["refund_customer"] += 1
         return f"refunded ${amount_usd} to {customer_id}"
 
     def delete_customer(customer_id: str) -> str:
         """Delete a customer record."""
+        tool_calls["delete_customer"] += 1
         return f"deleted {customer_id}"
 
     # Wrap any function: ACR authorizes it before it executes.
@@ -73,15 +78,26 @@ def main() -> None:
     # Allowed action: ACR authorizes, the function runs.
     print(refund_customer("cus_123", 25.00))
 
+    assert tool_calls["refund_customer"] == 1, "Allowed tool must run exactly once"
+
     # Forbidden action: ACR denies BEFORE the function runs. It never executes.
+    denial_observed = False
     try:
         delete_customer("cus_123")
     except ACRDeniedError as exc:
+        denial_observed = True
         print(f"DENIED before execution: {exc}")
 
-    print("\nNext step: point ACRClient at a real gateway")
-    print("(docker compose up in implementations/acr-control-plane)")
-    print("and this exact code enforces real Rego policies.")
+    assert tool_calls["delete_customer"] == 0, "Denied tool must never run"
+    assert denial_observed, "Denied action must raise ACRDeniedError"
+    print(
+        f"Verified tool calls: refund_customer={tool_calls['refund_customer']}, "
+        f"delete_customer={tool_calls['delete_customer']}"
+    )
+    print("Mocked SDK demo only: no real policy engine or persisted evidence was tested.")
+
+    print("\nNext step: follow the Docker Compose quick start in the README")
+    print("and register an agent with a real gateway to exercise real Rego policies.")
 
 
 if __name__ == "__main__":
